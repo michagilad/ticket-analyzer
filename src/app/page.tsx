@@ -1,65 +1,371 @@
-import Image from "next/image";
+'use client';
+
+import React, { useState, useCallback } from 'react';
+import Papa from 'papaparse';
+import { 
+  Download, 
+  Loader2, 
+  Sparkles,
+  FileSpreadsheet,
+  ArrowRight,
+  BarChart3,
+  Settings2
+} from 'lucide-react';
+import FileUpload from '@/components/FileUpload';
+import AnalysisTypeSelector from '@/components/AnalysisTypeSelector';
+import ResultsPreview from '@/components/ResultsPreview';
+import CategoriesManager from '@/components/CategoriesManager';
+import { 
+  Ticket, 
+  ExperienceMapping, 
+  AnalysisType, 
+  AnalysisResult,
+  CategorizedTicket,
+  ANALYSIS_CONFIGS
+} from '@/lib/types';
+import { runAnalysis } from '@/lib/analyzer';
+import { processTickets } from '@/lib/categorizer';
+import { exportToExcel, generateFilename } from '@/lib/excelExporter';
+
+type TabType = 'analyzer' | 'categories';
+
+interface AnalysisResultWithType {
+  type: AnalysisType;
+  result: AnalysisResult;
+  categorizedTickets: CategorizedTicket[];
+}
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<TabType>('analyzer');
+  const [ticketsFile, setTicketsFile] = useState<File | null>(null);
+  const [mappingsFile, setMappingsFile] = useState<File | null>(null);
+  const [analysisTypes, setAnalysisTypes] = useState<AnalysisType[]>(['overall']);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [results, setResults] = useState<AnalysisResultWithType[]>([]);
+  const [activeResultIndex, setActiveResultIndex] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileUpload = useCallback((file: File, type: 'tickets' | 'mappings') => {
+    if (type === 'tickets') {
+      setTicketsFile(file);
+    } else {
+      setMappingsFile(file);
+    }
+    // Reset results when files change
+    setResults([]);
+    setError(null);
+  }, []);
+
+  const handleRemoveFile = useCallback((type: 'tickets' | 'mappings') => {
+    if (type === 'tickets') {
+      setTicketsFile(null);
+    } else {
+      setMappingsFile(null);
+    }
+    setResults([]);
+    setError(null);
+  }, []);
+
+  const parseCSV = <T,>(file: File): Promise<T[]> => {
+    return new Promise((resolve, reject) => {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          resolve(results.data as T[]);
+        },
+        error: (error) => {
+          reject(error);
+        }
+      });
+    });
+  };
+
+  const handleAnalyze = async () => {
+    if (!ticketsFile) {
+      setError('Please upload an HS Export CSV file');
+      return;
+    }
+
+    if (analysisTypes.length === 0) {
+      setError('Please select at least one analysis type');
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setError(null);
+
+    try {
+      // Parse tickets CSV
+      const tickets = await parseCSV<Ticket>(ticketsFile);
+      
+      if (tickets.length === 0) {
+        throw new Error('No tickets found in the CSV file');
+      }
+
+      // Parse mappings CSV if provided
+      let mappings: ExperienceMapping[] | undefined;
+      if (mappingsFile) {
+        mappings = await parseCSV<ExperienceMapping>(mappingsFile);
+      }
+
+      // Process tickets once
+      const processed = processTickets(tickets, mappings);
+
+      // Run analysis for each selected type
+      const allResults: AnalysisResultWithType[] = [];
+      for (const type of analysisTypes) {
+        const analysisResult = runAnalysis(tickets, mappings, type);
+        allResults.push({
+          type,
+          result: analysisResult,
+          categorizedTickets: processed
+        });
+      }
+      
+      setResults(allResults);
+      setActiveResultIndex(0);
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred during analysis');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleDownload = (resultWithType: AnalysisResultWithType) => {
+    const blob = exportToExcel(resultWithType.result, resultWithType.type, resultWithType.categorizedTickets);
+    const filename = generateFilename(resultWithType.type);
+    
+    // Create download link
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadAll = () => {
+    // Download each file with a small delay to avoid browser blocking
+    results.forEach((resultWithType, index) => {
+      setTimeout(() => {
+        handleDownload(resultWithType);
+      }, index * 500);
+    });
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="min-h-screen bg-slate-950 text-slate-100">
+      {/* Background gradient */}
+      <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" />
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-violet-900/20 via-transparent to-transparent" />
+      
+      {/* Grid pattern overlay */}
+      <div 
+        className="fixed inset-0 opacity-[0.02]"
+        style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px),
+                           linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)`,
+          backgroundSize: '50px 50px'
+        }}
+      />
+
+      <div className="relative z-10 container mx-auto px-4 py-8 max-w-5xl">
+        {/* Header */}
+        <header className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-500/10 border border-violet-500/20 mb-6">
+            <Sparkles className="w-4 h-4 text-violet-400" />
+            <span className="text-sm text-violet-300 font-medium">QC Ticket Analysis Tool</span>
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-slate-100 via-slate-200 to-slate-300 bg-clip-text text-transparent">
+            Ticket Analyzer
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+        </header>
+
+        {/* Tab Navigation */}
+        <div className="flex justify-center mb-8">
+          <div className="inline-flex bg-slate-900/50 backdrop-blur-sm rounded-xl border border-slate-800/50 p-1">
+            <button
+              onClick={() => setActiveTab('analyzer')}
+              className={`
+                flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-200
+                ${activeTab === 'analyzer'
+                  ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/25'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                }
+              `}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              <BarChart3 className="w-4 h-4" />
+              Analyzer
+            </button>
+            <button
+              onClick={() => setActiveTab('categories')}
+              className={`
+                flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-200
+                ${activeTab === 'categories'
+                  ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/25'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                }
+              `}
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              <Settings2 className="w-4 h-4" />
+              Manage Categories
+            </button>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+
+        {/* Tab Content */}
+        {activeTab === 'analyzer' ? (
+          <div className="space-y-8">
+            {/* Description */}
+            <p className="text-slate-400 max-w-2xl mx-auto text-center">
+              Upload your QC ticket CSV files to automatically categorize and analyze tickets. 
+              Export professional Excel reports with detailed breakdowns.
+            </p>
+
+            {/* Upload Section */}
+            <section className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-800/50 p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+                  <FileSpreadsheet className="w-5 h-5 text-cyan-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-200">Upload Files</h2>
+                  <p className="text-sm text-slate-500">Upload your CSV files to begin analysis</p>
+                </div>
+              </div>
+              <FileUpload
+                onFileUpload={handleFileUpload}
+                ticketsFile={ticketsFile}
+                mappingsFile={mappingsFile}
+                onRemoveFile={handleRemoveFile}
+              />
+            </section>
+
+            {/* Analysis Type Section */}
+            <section className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-800/50 p-6">
+              <AnalysisTypeSelector
+                selectedTypes={analysisTypes}
+                onTypesChange={setAnalysisTypes}
+              />
+            </section>
+
+            {/* Analyze Button */}
+            <div className="flex justify-center">
+              <button
+                onClick={handleAnalyze}
+                disabled={!ticketsFile || isAnalyzing}
+                className={`
+                  group flex items-center gap-3 px-8 py-4 rounded-xl font-semibold
+                  transition-all duration-200
+                  ${ticketsFile && !isAnalyzing
+                    ? 'bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40'
+                    : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                  }
+                `}
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    Run Analysis
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center">
+                <p className="text-red-400">{error}</p>
+              </div>
+            )}
+
+            {/* Results Section */}
+            {results.length > 0 && (
+              <section className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-800/50 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                      <Sparkles className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold text-slate-200">Analysis Results</h2>
+                      <p className="text-sm text-slate-500">
+                        {results[0].result.totalTickets} tickets analyzed • {results.length} report{results.length > 1 ? 's' : ''} generated
+                      </p>
+                    </div>
+                  </div>
+                  {results.length > 1 ? (
+                    <button
+                      onClick={handleDownloadAll}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium hover:bg-emerald-500/20 transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download All ({results.length} files)
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleDownload(results[0])}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium hover:bg-emerald-500/20 transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download XLSX
+                    </button>
+                  )}
+                </div>
+                
+                {/* Toggle between results and download buttons */}
+                {results.length > 1 && (
+                  <div className="flex flex-wrap gap-2 mb-6 pb-6 border-b border-slate-700/50">
+                    {results.map((r, index) => (
+                      <button
+                        key={r.type}
+                        onClick={() => setActiveResultIndex(index)}
+                        className={`
+                          flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                          ${activeResultIndex === index
+                            ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/25'
+                            : 'bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-700/50'
+                          }
+                        `}
+                      >
+                        {ANALYSIS_CONFIGS[r.type].name}
+                      </button>
+                    ))}
+                    <div className="flex-1" />
+                    <button
+                      onClick={() => handleDownload(results[activeResultIndex])}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/50 border border-slate-700/50 text-slate-300 text-sm hover:bg-slate-700/50 transition-colors"
+                    >
+                      <Download className="w-3 h-3" />
+                      Download This
+                    </button>
+                  </div>
+                )}
+                
+                <ResultsPreview result={results[activeResultIndex].result} analysisType={results[activeResultIndex].type} />
+              </section>
+            )}
+          </div>
+        ) : (
+          <section className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-800/50 p-6">
+            <CategoriesManager />
+          </section>
+        )}
+
+        {/* Footer */}
+        <footer className="mt-16 text-center text-sm text-slate-600">
+          <p>QC Ticket Analyzer • Built for Vercel deployment</p>
+        </footer>
+      </div>
+    </main>
   );
 }
