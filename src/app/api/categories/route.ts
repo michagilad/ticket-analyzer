@@ -1,42 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CategoryConfig, DEFAULT_CATEGORIES } from '@/lib/categoryStorage';
 
-const CATEGORIES_KEY = 'qc-ticket-analyzer:categories';
-
 // In-memory cache for categories (works for serverless, resets on cold start)
 let cachedCategories: CategoryConfig | null = null;
 
-// Try to use Vercel KV if available
-async function getKV() {
-  try {
-    // Dynamic import to avoid build errors when KV is not configured
-    const { kv } = await import('@vercel/kv');
-    // Test if KV is properly configured by checking if env vars exist
-    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-      return kv;
-    }
-  } catch {
-    // KV not available
-  }
-  return null;
-}
-
 async function readCategories(): Promise<CategoryConfig> {
-  // Try Vercel KV first
-  const kv = await getKV();
-  if (kv) {
-    try {
-      const data = await kv.get<CategoryConfig>(CATEGORIES_KEY);
-      if (data) {
-        cachedCategories = data;
-        return data;
-      }
-    } catch (error) {
-      console.log('Vercel KV read error:', error);
-    }
-  }
-  
-  // Fall back to in-memory cache
+  // Return from cache if available
   if (cachedCategories) {
     return cachedCategories;
   }
@@ -49,19 +18,8 @@ async function readCategories(): Promise<CategoryConfig> {
 }
 
 async function writeCategories(config: CategoryConfig): Promise<void> {
-  // Always update in-memory cache
+  // Update in-memory cache
   cachedCategories = config;
-  
-  // Try to persist to Vercel KV if available
-  const kv = await getKV();
-  if (kv) {
-    try {
-      await kv.set(CATEGORIES_KEY, config);
-    } catch (error) {
-      console.error('Failed to write to Vercel KV:', error);
-      // Don't throw - we still have in-memory cache
-    }
-  }
 }
 
 export async function GET() {
