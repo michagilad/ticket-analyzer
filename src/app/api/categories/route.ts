@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { kv } from '@vercel/kv';
 import { CategoryConfig, DEFAULT_CATEGORIES } from '@/lib/categoryStorage';
 
-// In-memory cache for categories (works for serverless, resets on cold start)
+const CATEGORIES_KEY = 'qc-ticket-analyzer:categories';
+
+// In-memory cache fallback for local development
 let cachedCategories: CategoryConfig | null = null;
 
 async function readCategories(): Promise<CategoryConfig> {
-  // Return from cache if available
+  // Try Vercel KV first
+  try {
+    const data = await kv.get<CategoryConfig>(CATEGORIES_KEY);
+    if (data) {
+      cachedCategories = data;
+      return data;
+    }
+  } catch (error) {
+    console.log('Vercel KV not available, using fallback:', error);
+  }
+  
+  // Fall back to in-memory cache
   if (cachedCategories) {
     return cachedCategories;
   }
@@ -18,8 +32,16 @@ async function readCategories(): Promise<CategoryConfig> {
 }
 
 async function writeCategories(config: CategoryConfig): Promise<void> {
-  // Update in-memory cache
+  // Always update in-memory cache
   cachedCategories = config;
+  
+  // Try to persist to Vercel KV
+  try {
+    await kv.set(CATEGORIES_KEY, config);
+  } catch (error) {
+    console.error('Failed to write to Vercel KV:', error);
+    // Don't throw - we still have in-memory cache for this session
+  }
 }
 
 export async function GET() {
