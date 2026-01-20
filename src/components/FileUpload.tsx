@@ -1,24 +1,30 @@
 'use client';
 
 import React, { useCallback, useState } from 'react';
-import { Upload, FileSpreadsheet, X, CheckCircle2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, X, CheckCircle2, Clock } from 'lucide-react';
+
+export type FileType = 'tickets' | 'mappings' | 'lastWeekTickets' | 'lastWeekMappings';
 
 interface FileUploadProps {
-  onFileUpload: (file: File, type: 'tickets' | 'mappings') => void;
+  onFileUpload: (file: File, type: FileType) => void;
   ticketsFile: File | null;
   mappingsFile: File | null;
-  onRemoveFile: (type: 'tickets' | 'mappings') => void;
+  lastWeekTicketsFile: File | null;
+  lastWeekMappingsFile: File | null;
+  onRemoveFile: (type: FileType) => void;
 }
 
 export default function FileUpload({ 
   onFileUpload, 
   ticketsFile, 
-  mappingsFile, 
+  mappingsFile,
+  lastWeekTicketsFile,
+  lastWeekMappingsFile,
   onRemoveFile 
 }: FileUploadProps) {
-  const [dragOver, setDragOver] = useState<'tickets' | 'mappings' | null>(null);
+  const [dragOver, setDragOver] = useState<FileType | null>(null);
 
-  const handleDragOver = useCallback((e: React.DragEvent, type: 'tickets' | 'mappings') => {
+  const handleDragOver = useCallback((e: React.DragEvent, type: FileType) => {
     e.preventDefault();
     e.stopPropagation();
     setDragOver(type);
@@ -30,7 +36,7 @@ export default function FileUpload({
     setDragOver(null);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent, type: 'tickets' | 'mappings') => {
+  const handleDrop = useCallback((e: React.DragEvent, type: FileType) => {
     e.preventDefault();
     e.stopPropagation();
     setDragOver(null);
@@ -44,7 +50,7 @@ export default function FileUpload({
     }
   }, [onFileUpload]);
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>, type: 'tickets' | 'mappings') => {
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>, type: FileType) => {
     const files = e.target.files;
     if (files && files.length > 0) {
       onFileUpload(files[0], type);
@@ -58,26 +64,29 @@ export default function FileUpload({
     title, 
     description, 
     file, 
-    required 
+    required,
+    isLastWeek
   }: { 
-    type: 'tickets' | 'mappings'; 
+    type: FileType; 
     title: string; 
     description: string; 
     file: File | null;
     required?: boolean;
+    isLastWeek?: boolean;
   }) => (
     <div className="flex-1">
       <div className="flex items-center gap-2 mb-2">
-        <h3 className="text-sm font-semibold text-slate-200">{title}</h3>
+        {isLastWeek && <Clock className="w-3.5 h-3.5 text-blue-400" />}
+        <h3 className={`text-sm font-semibold ${isLastWeek ? 'text-blue-300' : 'text-slate-200'}`}>{title}</h3>
         {required && <span className="text-xs text-amber-400 font-medium">Required</span>}
         {!required && <span className="text-xs text-slate-500 font-medium">Optional</span>}
       </div>
       
       {file ? (
-        <div className="relative border-2 border-emerald-500/50 bg-emerald-500/10 rounded-xl p-4">
+        <div className={`relative border-2 ${isLastWeek ? 'border-blue-500/50 bg-blue-500/10' : 'border-emerald-500/50 bg-emerald-500/10'} rounded-xl p-3`}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            <div className={`w-8 h-8 rounded-lg ${isLastWeek ? 'bg-blue-500/20' : 'bg-emerald-500/20'} flex items-center justify-center`}>
+              <CheckCircle2 className={`w-4 h-4 ${isLastWeek ? 'text-blue-400' : 'text-emerald-400'}`} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-slate-200 truncate">{file.name}</p>
@@ -98,7 +107,9 @@ export default function FileUpload({
             transition-all duration-200
             ${dragOver === type 
               ? 'border-cyan-400 bg-cyan-500/10' 
-              : 'border-slate-600 hover:border-slate-500 hover:bg-slate-800/50'
+              : isLastWeek
+                ? 'border-blue-500/30 hover:border-blue-500/50 hover:bg-blue-500/5'
+                : 'border-slate-600 hover:border-slate-500 hover:bg-slate-800/50'
             }
           `}
           onDragOver={(e) => handleDragOver(e, type)}
@@ -114,15 +125,15 @@ export default function FileUpload({
           <div className="flex flex-col items-center text-center">
             <div className={`
               w-12 h-12 rounded-xl flex items-center justify-center mb-3
-              ${dragOver === type ? 'bg-cyan-500/20' : 'bg-slate-700/50'}
+              ${dragOver === type ? 'bg-cyan-500/20' : isLastWeek ? 'bg-blue-500/10' : 'bg-slate-700/50'}
             `}>
               {dragOver === type ? (
                 <FileSpreadsheet className="w-6 h-6 text-cyan-400" />
               ) : (
-                <Upload className="w-6 h-6 text-slate-400" />
+                <Upload className={`w-6 h-6 ${isLastWeek ? 'text-blue-400' : 'text-slate-400'}`} />
               )}
             </div>
-            <p className="text-sm text-slate-300 mb-1">
+            <p className={`text-sm ${isLastWeek ? 'text-blue-300' : 'text-slate-300'} mb-1`}>
               {dragOver === type ? 'Drop your file here' : 'Drag & drop or click to upload'}
             </p>
             <p className="text-xs text-slate-500">{description}</p>
@@ -133,21 +144,49 @@ export default function FileUpload({
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-4">
-        <UploadZone
-          type="tickets"
-          title="HS Export"
-          description="Contains ticket data with Experience ID"
-          file={ticketsFile}
-          required
-        />
-        <UploadZone
-          type="mappings"
-          title="QC App Export"
-          description="Contains reviewer/product info"
-          file={mappingsFile}
-        />
+    <div className="space-y-6">
+      {/* This Week's Files */}
+      <div>
+        <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">This Week&apos;s Data</h4>
+        <div className="flex gap-4">
+          <UploadZone
+            type="tickets"
+            title="HS Export"
+            description="Contains ticket data with Experience ID"
+            file={ticketsFile}
+            required
+          />
+          <UploadZone
+            type="mappings"
+            title="QC App Export"
+            description="Contains reviewer/product info"
+            file={mappingsFile}
+          />
+        </div>
+      </div>
+
+      {/* Last Week's Files */}
+      <div>
+        <h4 className="text-xs font-semibold text-blue-400/70 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <Clock className="w-3 h-3" />
+          Last Week&apos;s Data (for comparison)
+        </h4>
+        <div className="flex gap-4">
+          <UploadZone
+            type="lastWeekTickets"
+            title="Last Week's HS Export"
+            description="Previous week's ticket data"
+            file={lastWeekTicketsFile}
+            isLastWeek
+          />
+          <UploadZone
+            type="lastWeekMappings"
+            title="Last Week's QC App Export"
+            description="Previous week's mappings"
+            file={lastWeekMappingsFile}
+            isLastWeek
+          />
+        </div>
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import {
   ExperienceMapping,
   AnalysisResult,
   CategoryResult,
+  CategoryComparison,
   AnalysisType,
   ANALYSIS_CONFIGS,
   CATEGORY_METADATA,
@@ -11,14 +12,83 @@ import {
 } from './types';
 import { processTickets, getCategoryMetadata } from './categorizer';
 
+export interface LastWeekData {
+  totalTickets: number;
+  totalProductsReviewed: number;
+  approvedExperiences: number;
+  categoryCounts: Record<string, number>;
+  devCount: number;
+  factoryCount: number;
+  issueTypeBreakdown: Record<string, number>;
+}
+
 /**
- * Run the full analysis on tickets
+ * Generate LastWeekData from CSV files (tickets and mappings)
+ */
+export function generateLastWeekData(
+  tickets: Ticket[],
+  mappings: ExperienceMapping[] | undefined
+): LastWeekData {
+  // Process tickets to get categorization
+  const categorizedTickets = processTickets(tickets, mappings);
+  
+  // Calculate approved experiences from mappings
+  let approvedExperiences = 0;
+  let totalProductsReviewed = 0;
+  
+  if (mappings && mappings.length > 0) {
+    totalProductsReviewed = mappings.length;
+    approvedExperiences = mappings.filter(m => {
+      const ticketCount = Number(m.TotalTickets) || 0;
+      return ticketCount === 0;
+    }).length;
+  }
+  
+  // Count categories
+  const categoryCounts: Record<string, number> = {};
+  let devCount = 0;
+  let factoryCount = 0;
+  const issueTypeBreakdown: Record<string, number> = {};
+  
+  for (const ticket of categorizedTickets) {
+    const categories = ticket.categories || [ticket.category];
+    
+    for (const category of categories) {
+      categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+      
+      const metadata = getCategoryMetadata(category);
+      if (metadata.devFactory === 'DEV') {
+        devCount++;
+      } else if (metadata.devFactory === 'FACTORY') {
+        factoryCount++;
+      }
+      
+      if (metadata.issueType) {
+        issueTypeBreakdown[metadata.issueType] = 
+          (issueTypeBreakdown[metadata.issueType] || 0) + 1;
+      }
+    }
+  }
+  
+  return {
+    totalTickets: categorizedTickets.length,
+    totalProductsReviewed,
+    approvedExperiences,
+    categoryCounts,
+    devCount,
+    factoryCount,
+    issueTypeBreakdown
+  };
+}
+
+/**
+ * Run the full analysis on tickets with optional comparison to last week
  */
 export function runAnalysis(
   tickets: Ticket[],
   mappings: ExperienceMapping[] | undefined,
   analysisType: AnalysisType,
-  totalProductsReviewed?: number
+  lastWeekData?: LastWeekData
 ): AnalysisResult {
   const config = ANALYSIS_CONFIGS[analysisType];
   
@@ -47,7 +117,7 @@ export function runAnalysis(
     }).length;
   } else {
     // Fallback if no mappings provided
-    totalProducts = totalProductsReviewed || experiencesWithTickets.size;
+    totalProducts = experiencesWithTickets.size;
   }
   
   // Calculate metrics
@@ -139,6 +209,47 @@ export function runAnalysis(
     ? ((totalTickets - uncategorizedCount) / totalTickets) * 100 
     : 100;
   
+  // Build comparison data if last week's data is provided
+  let comparison: AnalysisResult['comparison'] = undefined;
+  
+  if (lastWeekData && lastWeekData.totalTickets > 0) {
+    // Build category comparisons
+    const categoryComparisons: CategoryComparison[] = [];
+    for (const result of categoryResults) {
+      const lastWeekCount = lastWeekData.categoryCounts[result.category] || 0;
+      const change = result.count - lastWeekCount;
+      const changePercent = lastWeekCount > 0 
+        ? ((change / lastWeekCount) * 100) 
+        : (result.count > 0 ? 100 : 0);
+      
+      categoryComparisons.push({
+        category: result.category,
+        thisWeek: result.count,
+        lastWeek: lastWeekCount,
+        change,
+        changePercent: Math.round(changePercent * 10) / 10,
+        trend: change > 0 ? 'up' : change < 0 ? 'down' : 'same'
+      });
+    }
+    
+    const ticketChange = totalTickets - lastWeekData.totalTickets;
+    const ticketChangePercent = lastWeekData.totalTickets > 0 
+      ? ((ticketChange / lastWeekData.totalTickets) * 100) 
+      : (totalTickets > 0 ? 100 : 0);
+    
+    comparison = {
+      lastWeekTotalTickets: lastWeekData.totalTickets,
+      lastWeekApprovedExperiences: lastWeekData.approvedExperiences,
+      lastWeekProductsReviewed: lastWeekData.totalProductsReviewed,
+      ticketChange,
+      ticketChangePercent: Math.round(ticketChangePercent * 10) / 10,
+      categoryComparisons,
+      devCountLastWeek: lastWeekData.devCount,
+      factoryCountLastWeek: lastWeekData.factoryCount,
+      issueTypeBreakdownLastWeek: lastWeekData.issueTypeBreakdown
+    };
+  }
+
   return {
     totalTickets,
     totalProductsReviewed: totalProducts,
@@ -151,7 +262,8 @@ export function runAnalysis(
     categoryResults,
     devCount,
     factoryCount,
-    issueTypeBreakdown
+    issueTypeBreakdown,
+    comparison
   };
 }
 

@@ -6,24 +6,37 @@ import {
   CheckCircle2, 
   AlertCircle, 
   TrendingUp,
+  TrendingDown,
   Package,
   Ticket,
-  PieChart
+  PieChart,
+  ArrowUp,
+  ArrowDown,
+  Minus
 } from 'lucide-react';
 import { AnalysisResult, ANALYSIS_CONFIGS, AnalysisType } from '@/lib/types';
 
 interface ResultsPreviewProps {
   result: AnalysisResult;
   analysisType: AnalysisType;
+  showComparison?: boolean;
 }
 
-export default function ResultsPreview({ result, analysisType }: ResultsPreviewProps) {
+export default function ResultsPreview({ result, analysisType, showComparison = false }: ResultsPreviewProps) {
   const config = ANALYSIS_CONFIGS[analysisType];
+  const comparison = result.comparison;
+  const hasComparison = showComparison && comparison;
   
   // Get top 10 categories for display
   const topCategories = result.categoryResults
     .filter(c => c.category !== 'Uncategorized')
     .slice(0, 10);
+
+  // Get comparison data for categories if available
+  const getCategoryComparison = (category: string) => {
+    if (!hasComparison) return null;
+    return comparison.categoryComparisons.find(c => c.category === category);
+  };
 
   return (
     <div className="space-y-6">
@@ -34,12 +47,21 @@ export default function ResultsPreview({ result, analysisType }: ResultsPreviewP
           label="Products Reviewed"
           value={result.totalProductsReviewed}
           color="violet"
+          comparison={hasComparison ? {
+            lastWeek: comparison.lastWeekProductsReviewed,
+            change: result.totalProductsReviewed - comparison.lastWeekProductsReviewed
+          } : undefined}
         />
         <MetricCard
           icon={<Ticket className="w-5 h-5" />}
           label="Total Tickets"
           value={result.totalTickets}
           color="cyan"
+          comparison={hasComparison ? {
+            lastWeek: comparison.lastWeekTotalTickets,
+            change: comparison.ticketChange,
+            changePercent: comparison.ticketChangePercent
+          } : undefined}
         />
         <MetricCard
           icon={<CheckCircle2 className="w-5 h-5" />}
@@ -67,6 +89,11 @@ export default function ResultsPreview({ result, analysisType }: ResultsPreviewP
                 : 0}%)
             </span>
           </p>
+          {hasComparison && comparison.lastWeekApprovedExperiences > 0 && (
+            <p className="text-xs text-slate-500 mt-1">
+              Last week: {comparison.lastWeekApprovedExperiences}
+            </p>
+          )}
         </div>
         <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
           <p className="text-xs text-slate-400 mb-1">Products with Tickets</p>
@@ -77,6 +104,45 @@ export default function ResultsPreview({ result, analysisType }: ResultsPreviewP
           <p className="text-lg font-semibold text-slate-200">{result.ticketsPerExperience}</p>
         </div>
       </div>
+
+      {/* Week-over-Week Summary (only when comparison is enabled) */}
+      {hasComparison && (
+        <div className={`rounded-xl p-4 border ${
+          comparison.ticketChange < 0 
+            ? 'bg-emerald-500/10 border-emerald-500/30' 
+            : comparison.ticketChange > 0 
+              ? 'bg-red-500/10 border-red-500/30'
+              : 'bg-slate-800/50 border-slate-700/50'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {comparison.ticketChange < 0 ? (
+                <TrendingDown className="w-5 h-5 text-emerald-400" />
+              ) : comparison.ticketChange > 0 ? (
+                <TrendingUp className="w-5 h-5 text-red-400" />
+              ) : (
+                <Minus className="w-5 h-5 text-slate-400" />
+              )}
+              <div>
+                <p className="text-sm font-semibold text-slate-200">Week-over-Week Change</p>
+                <p className="text-xs text-slate-400">
+                  {comparison.lastWeekTotalTickets} tickets last week → {result.totalTickets} this week
+                </p>
+              </div>
+            </div>
+            <div className={`text-right ${
+              comparison.ticketChange < 0 ? 'text-emerald-400' : comparison.ticketChange > 0 ? 'text-red-400' : 'text-slate-400'
+            }`}>
+              <p className="text-2xl font-bold">
+                {comparison.ticketChange > 0 ? '+' : ''}{comparison.ticketChange}
+              </p>
+              <p className="text-xs">
+                ({comparison.ticketChangePercent > 0 ? '+' : ''}{comparison.ticketChangePercent}%)
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Dev vs Factory (only for analyses that include it) */}
       {config.includeDevFactory && (result.devCount > 0 || result.factoryCount > 0) && (
@@ -91,6 +157,17 @@ export default function ResultsPreview({ result, analysisType }: ResultsPreviewP
                 <span className="text-cyan-400">DEV</span>
                 <span className="text-slate-400">
                   {result.devCount} ({((result.devCount / (result.devCount + result.factoryCount)) * 100).toFixed(1)}%)
+                  {hasComparison && (
+                    <span className={`ml-2 ${
+                      result.devCount - comparison.devCountLastWeek < 0 ? 'text-emerald-400' : 
+                      result.devCount - comparison.devCountLastWeek > 0 ? 'text-red-400' : ''
+                    }`}>
+                      {result.devCount - comparison.devCountLastWeek > 0 ? '↑' : 
+                       result.devCount - comparison.devCountLastWeek < 0 ? '↓' : ''}
+                      {result.devCount - comparison.devCountLastWeek !== 0 && 
+                        Math.abs(result.devCount - comparison.devCountLastWeek)}
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
@@ -105,6 +182,17 @@ export default function ResultsPreview({ result, analysisType }: ResultsPreviewP
                 <span className="text-amber-400">FACTORY</span>
                 <span className="text-slate-400">
                   {result.factoryCount} ({((result.factoryCount / (result.devCount + result.factoryCount)) * 100).toFixed(1)}%)
+                  {hasComparison && (
+                    <span className={`ml-2 ${
+                      result.factoryCount - comparison.factoryCountLastWeek < 0 ? 'text-emerald-400' : 
+                      result.factoryCount - comparison.factoryCountLastWeek > 0 ? 'text-red-400' : ''
+                    }`}>
+                      {result.factoryCount - comparison.factoryCountLastWeek > 0 ? '↑' : 
+                       result.factoryCount - comparison.factoryCountLastWeek < 0 ? '↓' : ''}
+                      {result.factoryCount - comparison.factoryCountLastWeek !== 0 && 
+                        Math.abs(result.factoryCount - comparison.factoryCountLastWeek)}
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
@@ -123,27 +211,48 @@ export default function ResultsPreview({ result, analysisType }: ResultsPreviewP
         <h4 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
           <BarChart3 className="w-4 h-4 text-slate-400" />
           Top Categories
+          {hasComparison && <span className="text-xs text-slate-500 font-normal ml-2">(with week-over-week change)</span>}
         </h4>
         <div className="space-y-3">
-          {topCategories.map((cat, index) => (
-            <div key={cat.category} className="group">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-sm text-slate-300 truncate flex-1 mr-2">
-                  <span className="text-slate-500 mr-2">{index + 1}.</span>
-                  {cat.category}
-                </span>
-                <span className="text-xs text-slate-400 whitespace-nowrap">
-                  {cat.count} ({cat.percentage.toFixed(1)}%)
-                </span>
+          {topCategories.map((cat, index) => {
+            const catComparison = getCategoryComparison(cat.category);
+            return (
+              <div key={cat.category} className="group">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-sm text-slate-300 truncate flex-1 mr-2">
+                    <span className="text-slate-500 mr-2">{index + 1}.</span>
+                    {cat.category}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {hasComparison && catComparison && (
+                      <span className={`text-xs flex items-center gap-0.5 ${
+                        catComparison.change < 0 ? 'text-emerald-400' : 
+                        catComparison.change > 0 ? 'text-red-400' : 'text-slate-500'
+                      }`}>
+                        {catComparison.change > 0 ? <ArrowUp className="w-3 h-3" /> : 
+                         catComparison.change < 0 ? <ArrowDown className="w-3 h-3" /> : null}
+                        {catComparison.change !== 0 && Math.abs(catComparison.change)}
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-400 whitespace-nowrap">
+                      {cat.count} ({cat.percentage.toFixed(1)}%)
+                    </span>
+                  </div>
+                </div>
+                <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-violet-500 to-cyan-500 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(cat.percentage * 2, 100)}%` }}
+                  />
+                </div>
+                {hasComparison && catComparison && catComparison.lastWeek > 0 && (
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Last week: {catComparison.lastWeek}
+                  </p>
+                )}
               </div>
-              <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-violet-500 to-cyan-500 rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(cat.percentage * 2, 100)}%` }}
-                />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         {result.categoryResults.length > 10 && (
           <p className="text-xs text-slate-500 mt-4 text-center">
@@ -162,15 +271,24 @@ export default function ResultsPreview({ result, analysisType }: ResultsPreviewP
           <div className="flex flex-wrap gap-2">
             {Object.entries(result.issueTypeBreakdown)
               .sort((a, b) => b[1] - a[1])
-              .map(([type, count]) => (
-                <div 
-                  key={type}
-                  className="px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50"
-                >
-                  <span className="text-xs font-medium text-slate-300">{type}</span>
-                  <span className="text-xs text-slate-500 ml-2">{count}</span>
-                </div>
-              ))}
+              .map(([type, count]) => {
+                const lastWeekCount = hasComparison ? (comparison.issueTypeBreakdownLastWeek[type] || 0) : 0;
+                const change = count - lastWeekCount;
+                return (
+                  <div 
+                    key={type}
+                    className="px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50"
+                  >
+                    <span className="text-xs font-medium text-slate-300">{type}</span>
+                    <span className="text-xs text-slate-500 ml-2">{count}</span>
+                    {hasComparison && change !== 0 && (
+                      <span className={`text-xs ml-1 ${change < 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        ({change > 0 ? '+' : ''}{change})
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}
@@ -182,12 +300,18 @@ function MetricCard({
   icon, 
   label, 
   value, 
-  color 
+  color,
+  comparison
 }: { 
   icon: React.ReactNode; 
   label: string; 
   value: string | number;
   color: 'violet' | 'cyan' | 'emerald' | 'amber' | 'slate';
+  comparison?: {
+    lastWeek: number;
+    change: number;
+    changePercent?: number;
+  };
 }) {
   const colorClasses = {
     violet: 'bg-violet-500/10 text-violet-400 border-violet-500/30',
@@ -204,6 +328,22 @@ function MetricCard({
         <span className="text-xs font-medium opacity-80">{label}</span>
       </div>
       <p className="text-2xl font-bold">{value}</p>
+      {comparison && (
+        <div className="mt-1 flex items-center gap-1">
+          <span className="text-xs text-slate-500">vs {comparison.lastWeek}</span>
+          {comparison.change !== 0 && (
+            <span className={`text-xs flex items-center ${
+              comparison.change < 0 ? 'text-emerald-400' : 'text-red-400'
+            }`}>
+              {comparison.change > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+              {Math.abs(comparison.change)}
+              {comparison.changePercent !== undefined && (
+                <span className="ml-0.5">({comparison.changePercent > 0 ? '+' : ''}{comparison.changePercent}%)</span>
+              )}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

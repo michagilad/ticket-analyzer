@@ -9,9 +9,10 @@ import {
   FileSpreadsheet,
   ArrowRight,
   BarChart3,
-  Settings2
+  Settings2,
+  GitCompare
 } from 'lucide-react';
-import FileUpload from '@/components/FileUpload';
+import FileUpload, { FileType } from '@/components/FileUpload';
 import AnalysisTypeSelector from '@/components/AnalysisTypeSelector';
 import ResultsPreview from '@/components/ResultsPreview';
 import CategoriesManager from '@/components/CategoriesManager';
@@ -23,7 +24,7 @@ import {
   CategorizedTicket,
   ANALYSIS_CONFIGS
 } from '@/lib/types';
-import { runAnalysis } from '@/lib/analyzer';
+import { runAnalysis, generateLastWeekData, LastWeekData } from '@/lib/analyzer';
 import { processTickets } from '@/lib/categorizer';
 import { exportToExcel, generateFilename } from '@/lib/excelExporter';
 
@@ -33,34 +34,55 @@ interface AnalysisResultWithType {
   type: AnalysisType;
   result: AnalysisResult;
   categorizedTickets: CategorizedTicket[];
+  showComparison: boolean;
 }
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabType>('analyzer');
   const [ticketsFile, setTicketsFile] = useState<File | null>(null);
   const [mappingsFile, setMappingsFile] = useState<File | null>(null);
+  const [lastWeekTicketsFile, setLastWeekTicketsFile] = useState<File | null>(null);
+  const [lastWeekMappingsFile, setLastWeekMappingsFile] = useState<File | null>(null);
   const [analysisTypes, setAnalysisTypes] = useState<AnalysisType[]>(['overall']);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState<AnalysisResultWithType[]>([]);
   const [activeResultIndex, setActiveResultIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const handleFileUpload = useCallback((file: File, type: 'tickets' | 'mappings') => {
-    if (type === 'tickets') {
-      setTicketsFile(file);
-    } else {
-      setMappingsFile(file);
+  const handleFileUpload = useCallback((file: File, type: FileType) => {
+    switch (type) {
+      case 'tickets':
+        setTicketsFile(file);
+        break;
+      case 'mappings':
+        setMappingsFile(file);
+        break;
+      case 'lastWeekTickets':
+        setLastWeekTicketsFile(file);
+        break;
+      case 'lastWeekMappings':
+        setLastWeekMappingsFile(file);
+        break;
     }
     // Reset results when files change
     setResults([]);
     setError(null);
   }, []);
 
-  const handleRemoveFile = useCallback((type: 'tickets' | 'mappings') => {
-    if (type === 'tickets') {
-      setTicketsFile(null);
-    } else {
-      setMappingsFile(null);
+  const handleRemoveFile = useCallback((type: FileType) => {
+    switch (type) {
+      case 'tickets':
+        setTicketsFile(null);
+        break;
+      case 'mappings':
+        setMappingsFile(null);
+        break;
+      case 'lastWeekTickets':
+        setLastWeekTicketsFile(null);
+        break;
+      case 'lastWeekMappings':
+        setLastWeekMappingsFile(null);
+        break;
     }
     setResults([]);
     setError(null);
@@ -96,30 +118,50 @@ export default function Home() {
     setError(null);
 
     try {
-      // Parse tickets CSV
+      // Parse this week's tickets CSV
       const tickets = await parseCSV<Ticket>(ticketsFile);
       
       if (tickets.length === 0) {
         throw new Error('No tickets found in the CSV file');
       }
 
-      // Parse mappings CSV if provided
+      // Parse this week's mappings CSV if provided
       let mappings: ExperienceMapping[] | undefined;
       if (mappingsFile) {
         mappings = await parseCSV<ExperienceMapping>(mappingsFile);
       }
 
+      // Parse last week's CSVs if provided
+      let lastWeekData: LastWeekData | undefined;
+      if (lastWeekTicketsFile) {
+        try {
+          const lastWeekTickets = await parseCSV<Ticket>(lastWeekTicketsFile);
+          let lastWeekMappings: ExperienceMapping[] | undefined;
+          if (lastWeekMappingsFile) {
+            lastWeekMappings = await parseCSV<ExperienceMapping>(lastWeekMappingsFile);
+          }
+          lastWeekData = generateLastWeekData(lastWeekTickets, lastWeekMappings);
+        } catch (err) {
+          console.error('Failed to parse last week data:', err);
+          // Continue without comparison data
+        }
+      }
+
       // Process tickets once
       const processed = processTickets(tickets, mappings);
+
+      // Determine if comparison data is available
+      const hasComparison = !!lastWeekData && lastWeekData.totalTickets > 0;
 
       // Run analysis for each selected type
       const allResults: AnalysisResultWithType[] = [];
       for (const type of analysisTypes) {
-        const analysisResult = runAnalysis(tickets, mappings, type);
+        const analysisResult = runAnalysis(tickets, mappings, type, lastWeekData);
         allResults.push({
           type,
           result: analysisResult,
-          categorizedTickets: processed
+          categorizedTickets: processed,
+          showComparison: hasComparison
         });
       }
       
@@ -133,9 +175,15 @@ export default function Home() {
     }
   };
 
+  const toggleComparison = (index: number) => {
+    setResults(prev => prev.map((r, i) => 
+      i === index ? { ...r, showComparison: !r.showComparison } : r
+    ));
+  };
+
   const handleDownload = (resultWithType: AnalysisResultWithType) => {
-    const blob = exportToExcel(resultWithType.result, resultWithType.type, resultWithType.categorizedTickets);
-    const filename = generateFilename(resultWithType.type);
+    const blob = exportToExcel(resultWithType.result, resultWithType.type, resultWithType.categorizedTickets, resultWithType.showComparison);
+    const filename = generateFilename(resultWithType.type, resultWithType.showComparison);
     
     // Create download link
     const url = URL.createObjectURL(blob);
@@ -156,6 +204,9 @@ export default function Home() {
       }, index * 500);
     });
   };
+
+  const hasLastWeekData = lastWeekTicketsFile !== null;
+  const activeResult = results[activeResultIndex];
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
@@ -241,6 +292,8 @@ export default function Home() {
                 onFileUpload={handleFileUpload}
                 ticketsFile={ticketsFile}
                 mappingsFile={mappingsFile}
+                lastWeekTicketsFile={lastWeekTicketsFile}
+                lastWeekMappingsFile={lastWeekMappingsFile}
                 onRemoveFile={handleRemoveFile}
               />
             </section>
@@ -300,6 +353,7 @@ export default function Home() {
                       <h2 className="text-lg font-semibold text-slate-200">Analysis Results</h2>
                       <p className="text-sm text-slate-500">
                         {results[0].result.totalTickets} tickets analyzed • {results.length} report{results.length > 1 ? 's' : ''} generated
+                        {hasLastWeekData && ' • Comparison available'}
                       </p>
                     </div>
                   </div>
@@ -350,8 +404,37 @@ export default function Home() {
                     </button>
                   </div>
                 )}
+
+                {/* Comparison Toggle */}
+                {activeResult?.result.comparison && (
+                  <div className="flex items-center justify-between mb-6 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                    <div className="flex items-center gap-2">
+                      <GitCompare className="w-4 h-4 text-blue-400" />
+                      <span className="text-sm text-blue-300">Week-over-Week Comparison</span>
+                      <span className="text-xs text-blue-400/70">
+                        (Last week: {activeResult.result.comparison.lastWeekTotalTickets} tickets)
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => toggleComparison(activeResultIndex)}
+                      className={`
+                        px-4 py-1.5 rounded-lg text-sm font-medium transition-all
+                        ${activeResult.showComparison
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }
+                      `}
+                    >
+                      {activeResult.showComparison ? 'Comparison ON' : 'Comparison OFF'}
+                    </button>
+                  </div>
+                )}
                 
-                <ResultsPreview result={results[activeResultIndex].result} analysisType={results[activeResultIndex].type} />
+                <ResultsPreview 
+                  result={activeResult.result} 
+                  analysisType={activeResult.type}
+                  showComparison={activeResult.showComparison}
+                />
               </section>
             )}
           </div>

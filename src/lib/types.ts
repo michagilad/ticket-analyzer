@@ -53,6 +53,15 @@ export interface CategoryResult {
   metadata: CategoryMetadata;
 }
 
+export interface CategoryComparison {
+  category: string;
+  thisWeek: number;
+  lastWeek: number;
+  change: number;
+  changePercent: number;
+  trend: 'up' | 'down' | 'same';
+}
+
 export interface AnalysisResult {
   totalTickets: number;
   totalProductsReviewed: number;
@@ -66,6 +75,18 @@ export interface AnalysisResult {
   devCount: number;
   factoryCount: number;
   issueTypeBreakdown: Record<string, number>;
+  // Comparison data (optional - only when last week's data is provided)
+  comparison?: {
+    lastWeekTotalTickets: number;
+    lastWeekApprovedExperiences: number;
+    lastWeekProductsReviewed: number;
+    ticketChange: number;
+    ticketChangePercent: number;
+    categoryComparisons: CategoryComparison[];
+    devCountLastWeek: number;
+    factoryCountLastWeek: number;
+    issueTypeBreakdownLastWeek: Record<string, number>;
+  };
 }
 
 export type AnalysisType = 

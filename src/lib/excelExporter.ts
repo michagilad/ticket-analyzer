@@ -6,11 +6,7 @@ import {
   ANALYSIS_CONFIGS,
   CategorizedTicket
 } from './types';
-import { getTopProductTypes, getTopProductTypeForCategory } from './analyzer';
-
-// Color constants
-const HEADER_BLUE = '4472C4';
-const WHITE_TEXT = 'FFFFFF';
+import { getTopProductTypes } from './analyzer';
 
 /**
  * Create a visual bar chart using block characters
@@ -26,28 +22,77 @@ function createVisualBar(percentage: number, maxLength: number = 30): string {
 function createDashboardSheet(
   result: AnalysisResult,
   analysisType: AnalysisType,
-  allTickets: CategorizedTicket[]
+  allTickets: CategorizedTicket[],
+  includeComparison: boolean = false
 ): XLSX.WorkSheet {
   const config = ANALYSIS_CONFIGS[analysisType];
   const rows: (string | number)[][] = [];
   const dateStr = format(new Date(), 'MMMM d, yyyy');
+  const comparison = result.comparison;
+  const hasComparison = includeComparison && comparison;
   
   // Title
-  rows.push([`Ticket Analysis Dashboard - ${config.name}`]);
+  rows.push([`Ticket Analysis Dashboard - ${config.name}${hasComparison ? ' (with Week-over-Week Comparison)' : ''}`]);
   rows.push([`${dateStr}`]);
   rows.push([]);
   
   // Metrics section
-  rows.push(['METRICS']);
-  rows.push(['Total Products Reviewed', result.totalProductsReviewed]);
-  rows.push(['Approved Experiences (No Issues)', `${result.approvedExperiences} (${result.totalProductsReviewed > 0 ? ((result.approvedExperiences / result.totalProductsReviewed) * 100).toFixed(1) : 0}%)`]);
-  rows.push(['Total Products with Tickets', result.productsWithTickets]);
-  rows.push(['Tickets per Experience', result.ticketsPerExperience]);
-  rows.push(['Total Tickets', result.totalTickets]);
-  rows.push(['Categorized Tickets', result.categorizedCount]);
-  rows.push(['Unique Categories', result.categoryResults.filter(c => c.count > 0 && c.category !== 'Uncategorized').length]);
-  rows.push(['Uncategorized', `${result.uncategorizedCount} (${result.totalTickets > 0 ? ((result.uncategorizedCount / result.totalTickets) * 100).toFixed(1) : 0}%)`]);
+  rows.push(['METRICS', '', hasComparison ? 'Last Week' : '', hasComparison ? 'Change' : '']);
+  rows.push([
+    'Total Products Reviewed', 
+    result.totalProductsReviewed,
+    hasComparison ? comparison.lastWeekProductsReviewed : '',
+    hasComparison ? result.totalProductsReviewed - comparison.lastWeekProductsReviewed : ''
+  ]);
+  rows.push([
+    'Approved Experiences (No Issues)', 
+    `${result.approvedExperiences} (${result.totalProductsReviewed > 0 ? ((result.approvedExperiences / result.totalProductsReviewed) * 100).toFixed(1) : 0}%)`,
+    hasComparison ? comparison.lastWeekApprovedExperiences : '',
+    ''
+  ]);
+  rows.push(['Total Products with Tickets', result.productsWithTickets, '', '']);
+  rows.push(['Tickets per Experience', result.ticketsPerExperience, '', '']);
+  rows.push([
+    'Total Tickets', 
+    result.totalTickets,
+    hasComparison ? comparison.lastWeekTotalTickets : '',
+    hasComparison ? `${comparison.ticketChange} (${comparison.ticketChangePercent}%)` : ''
+  ]);
+  rows.push(['Categorized Tickets', result.categorizedCount, '', '']);
+  rows.push(['Unique Categories', result.categoryResults.filter(c => c.count > 0 && c.category !== 'Uncategorized').length, '', '']);
+  rows.push(['Uncategorized', `${result.uncategorizedCount} (${result.totalTickets > 0 ? ((result.uncategorizedCount / result.totalTickets) * 100).toFixed(1) : 0}%)`, '', '']);
   rows.push([]);
+  
+  // Week-over-Week Summary (if comparison enabled)
+  if (hasComparison) {
+    rows.push(['WEEK-OVER-WEEK SUMMARY']);
+    rows.push(['Metric', 'This Week', 'Last Week', 'Change', '% Change', 'Trend']);
+    rows.push([
+      'Total Tickets',
+      result.totalTickets,
+      comparison.lastWeekTotalTickets,
+      comparison.ticketChange,
+      `${comparison.ticketChangePercent}%`,
+      comparison.ticketChange < 0 ? '↓ IMPROVED' : comparison.ticketChange > 0 ? '↑ INCREASED' : '→ SAME'
+    ]);
+    rows.push([
+      'DEV Issues',
+      result.devCount,
+      comparison.devCountLastWeek,
+      result.devCount - comparison.devCountLastWeek,
+      comparison.devCountLastWeek > 0 ? `${(((result.devCount - comparison.devCountLastWeek) / comparison.devCountLastWeek) * 100).toFixed(1)}%` : 'N/A',
+      result.devCount < comparison.devCountLastWeek ? '↓' : result.devCount > comparison.devCountLastWeek ? '↑' : '→'
+    ]);
+    rows.push([
+      'FACTORY Issues',
+      result.factoryCount,
+      comparison.factoryCountLastWeek,
+      result.factoryCount - comparison.factoryCountLastWeek,
+      comparison.factoryCountLastWeek > 0 ? `${(((result.factoryCount - comparison.factoryCountLastWeek) / comparison.factoryCountLastWeek) * 100).toFixed(1)}%` : 'N/A',
+      result.factoryCount < comparison.factoryCountLastWeek ? '↓' : result.factoryCount > comparison.factoryCountLastWeek ? '↑' : '→'
+    ]);
+    rows.push([]);
+  }
   
   // Top 5 Product Types (only for overall analysis with mappings)
   if (analysisType === 'overall' && allTickets.some(t => t.ProductType)) {
@@ -72,31 +117,79 @@ function createDashboardSheet(
   // Category Breakdown
   rows.push(['CATEGORY BREAKDOWN']);
   
-  if (config.includeDevFactory && config.includeIssueType) {
-    // Full columns for Overall and Factory analyses
-    rows.push(['Category', 'Count', 'Percentage', 'Visual', 'Dev/Factory', 'Issue Type']);
-    
-    for (const cat of result.categoryResults) {
-      rows.push([
-        cat.category,
-        cat.count,
-        `${cat.percentage.toFixed(1)}%`,
-        createVisualBar(cat.percentage),
-        cat.metadata.devFactory || '',
-        cat.metadata.issueType || ''
-      ]);
+  if (hasComparison) {
+    // With comparison columns
+    if (config.includeDevFactory && config.includeIssueType) {
+      rows.push(['Category', 'This Week', 'Last Week', 'Change', '% Change', 'Trend', 'Percentage', 'Visual', 'Dev/Factory', 'Issue Type']);
+      
+      for (const cat of result.categoryResults) {
+        const catComp = comparison.categoryComparisons.find(c => c.category === cat.category);
+        const lastWeek = catComp?.lastWeek || 0;
+        const change = catComp?.change || cat.count;
+        const changePercent = catComp?.changePercent || (cat.count > 0 ? 100 : 0);
+        const trend = change < 0 ? '↓' : change > 0 ? '↑' : '→';
+        
+        rows.push([
+          cat.category,
+          cat.count,
+          lastWeek,
+          change,
+          `${changePercent}%`,
+          trend,
+          `${cat.percentage.toFixed(1)}%`,
+          createVisualBar(cat.percentage),
+          cat.metadata.devFactory || '',
+          cat.metadata.issueType || ''
+        ]);
+      }
+    } else {
+      rows.push(['Category', 'This Week', 'Last Week', 'Change', '% Change', 'Trend', 'Percentage', 'Visual']);
+      
+      for (const cat of result.categoryResults) {
+        const catComp = comparison.categoryComparisons.find(c => c.category === cat.category);
+        const lastWeek = catComp?.lastWeek || 0;
+        const change = catComp?.change || cat.count;
+        const changePercent = catComp?.changePercent || (cat.count > 0 ? 100 : 0);
+        const trend = change < 0 ? '↓' : change > 0 ? '↑' : '→';
+        
+        rows.push([
+          cat.category,
+          cat.count,
+          lastWeek,
+          change,
+          `${changePercent}%`,
+          trend,
+          `${cat.percentage.toFixed(1)}%`,
+          createVisualBar(cat.percentage)
+        ]);
+      }
     }
   } else {
-    // Simplified columns for Dimensions and Label analyses
-    rows.push(['Category', 'Count', 'Percentage', 'Visual']);
-    
-    for (const cat of result.categoryResults) {
-      rows.push([
-        cat.category,
-        cat.count,
-        `${cat.percentage.toFixed(1)}%`,
-        createVisualBar(cat.percentage)
-      ]);
+    // Without comparison
+    if (config.includeDevFactory && config.includeIssueType) {
+      rows.push(['Category', 'Count', 'Percentage', 'Visual', 'Dev/Factory', 'Issue Type']);
+      
+      for (const cat of result.categoryResults) {
+        rows.push([
+          cat.category,
+          cat.count,
+          `${cat.percentage.toFixed(1)}%`,
+          createVisualBar(cat.percentage),
+          cat.metadata.devFactory || '',
+          cat.metadata.issueType || ''
+        ]);
+      }
+    } else {
+      rows.push(['Category', 'Count', 'Percentage', 'Visual']);
+      
+      for (const cat of result.categoryResults) {
+        rows.push([
+          cat.category,
+          cat.count,
+          `${cat.percentage.toFixed(1)}%`,
+          createVisualBar(cat.percentage)
+        ]);
+      }
     }
   }
   
@@ -105,33 +198,80 @@ function createDashboardSheet(
   // Dev vs Factory Breakdown (only for analyses that include it)
   if (config.includeDevFactory) {
     rows.push(['DEV VS FACTORY BREAKDOWN']);
-    rows.push(['Type', 'Count', 'Percentage', 'Visual']);
     
-    const devFactoryTotal = result.devCount + result.factoryCount;
-    const devPercentage = devFactoryTotal > 0 ? (result.devCount / devFactoryTotal) * 100 : 0;
-    const factoryPercentage = devFactoryTotal > 0 ? (result.factoryCount / devFactoryTotal) * 100 : 0;
-    
-    rows.push(['DEV', result.devCount, `${devPercentage.toFixed(1)}%`, createVisualBar(devPercentage, 50)]);
-    rows.push(['FACTORY', result.factoryCount, `${factoryPercentage.toFixed(1)}%`, createVisualBar(factoryPercentage, 50)]);
+    if (hasComparison) {
+      rows.push(['Type', 'This Week', 'Last Week', 'Change', 'Percentage', 'Visual']);
+      
+      const devFactoryTotal = result.devCount + result.factoryCount;
+      const devPercentage = devFactoryTotal > 0 ? (result.devCount / devFactoryTotal) * 100 : 0;
+      const factoryPercentage = devFactoryTotal > 0 ? (result.factoryCount / devFactoryTotal) * 100 : 0;
+      
+      rows.push([
+        'DEV', 
+        result.devCount, 
+        comparison.devCountLastWeek,
+        result.devCount - comparison.devCountLastWeek,
+        `${devPercentage.toFixed(1)}%`, 
+        createVisualBar(devPercentage, 50)
+      ]);
+      rows.push([
+        'FACTORY', 
+        result.factoryCount, 
+        comparison.factoryCountLastWeek,
+        result.factoryCount - comparison.factoryCountLastWeek,
+        `${factoryPercentage.toFixed(1)}%`, 
+        createVisualBar(factoryPercentage, 50)
+      ]);
+    } else {
+      rows.push(['Type', 'Count', 'Percentage', 'Visual']);
+      
+      const devFactoryTotal = result.devCount + result.factoryCount;
+      const devPercentage = devFactoryTotal > 0 ? (result.devCount / devFactoryTotal) * 100 : 0;
+      const factoryPercentage = devFactoryTotal > 0 ? (result.factoryCount / devFactoryTotal) * 100 : 0;
+      
+      rows.push(['DEV', result.devCount, `${devPercentage.toFixed(1)}%`, createVisualBar(devPercentage, 50)]);
+      rows.push(['FACTORY', result.factoryCount, `${factoryPercentage.toFixed(1)}%`, createVisualBar(factoryPercentage, 50)]);
+    }
     rows.push([]);
   }
   
   // Issue Type Breakdown (only for analyses that include it)
   if (config.includeIssueType) {
     rows.push(['ISSUE TYPE BREAKDOWN']);
-    rows.push(['Issue Type', 'Count', 'Percentage', 'Visual']);
     
-    const issueTypes = Object.entries(result.issueTypeBreakdown)
-      .sort((a, b) => b[1] - a[1]);
-    
-    for (const [issueType, count] of issueTypes) {
-      const percentage = result.totalTickets > 0 ? (count / result.totalTickets) * 100 : 0;
-      rows.push([
-        issueType,
-        count,
-        `${percentage.toFixed(1)}%`,
-        createVisualBar(percentage, 50)
-      ]);
+    if (hasComparison) {
+      rows.push(['Issue Type', 'This Week', 'Last Week', 'Change', 'Percentage', 'Visual']);
+      
+      const issueTypes = Object.entries(result.issueTypeBreakdown)
+        .sort((a, b) => b[1] - a[1]);
+      
+      for (const [issueType, count] of issueTypes) {
+        const lastWeekCount = comparison.issueTypeBreakdownLastWeek[issueType] || 0;
+        const percentage = result.totalTickets > 0 ? (count / result.totalTickets) * 100 : 0;
+        rows.push([
+          issueType,
+          count,
+          lastWeekCount,
+          count - lastWeekCount,
+          `${percentage.toFixed(1)}%`,
+          createVisualBar(percentage, 50)
+        ]);
+      }
+    } else {
+      rows.push(['Issue Type', 'Count', 'Percentage', 'Visual']);
+      
+      const issueTypes = Object.entries(result.issueTypeBreakdown)
+        .sort((a, b) => b[1] - a[1]);
+      
+      for (const [issueType, count] of issueTypes) {
+        const percentage = result.totalTickets > 0 ? (count / result.totalTickets) * 100 : 0;
+        rows.push([
+          issueType,
+          count,
+          `${percentage.toFixed(1)}%`,
+          createVisualBar(percentage, 50)
+        ]);
+      }
     }
   }
   
@@ -140,7 +280,11 @@ function createDashboardSheet(
   // Set column widths
   ws['!cols'] = [
     { wch: 45 }, // Category
-    { wch: 12 }, // Count
+    { wch: 12 }, // Count/This Week
+    { wch: 12 }, // Last Week
+    { wch: 12 }, // Change
+    { wch: 12 }, // % Change
+    { wch: 10 }, // Trend
     { wch: 12 }, // Percentage
     { wch: 35 }, // Visual
     { wch: 12 }, // Dev/Factory
@@ -231,13 +375,13 @@ function safeSheetName(name: string): string {
 export function exportToExcel(
   result: AnalysisResult,
   analysisType: AnalysisType,
-  allTickets: CategorizedTicket[]
+  allTickets: CategorizedTicket[],
+  includeComparison: boolean = false
 ): Blob {
-  const config = ANALYSIS_CONFIGS[analysisType];
   const wb = XLSX.utils.book_new();
   
   // Create dashboard sheet
-  const dashboardSheet = createDashboardSheet(result, analysisType, allTickets);
+  const dashboardSheet = createDashboardSheet(result, analysisType, allTickets, includeComparison);
   XLSX.utils.book_append_sheet(wb, dashboardSheet, 'Dashboard');
   
   // Create category sheets (only for categories with tickets)
@@ -264,9 +408,10 @@ export function exportToExcel(
 /**
  * Generate filename for the export
  */
-export function generateFilename(analysisType: AnalysisType): string {
+export function generateFilename(analysisType: AnalysisType, includeComparison: boolean = false): string {
   const config = ANALYSIS_CONFIGS[analysisType];
   const dateStr = format(new Date(), 'yyyy-MM-dd');
   const typeName = config.name.replace(/\s+/g, '_');
-  return `QC_Ticket_Analysis_${typeName}_${dateStr}.xlsx`;
+  const suffix = includeComparison ? '_WoW' : '';
+  return `QC_Ticket_Analysis_${typeName}${suffix}_${dateStr}.xlsx`;
 }
