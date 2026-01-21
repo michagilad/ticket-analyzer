@@ -292,8 +292,11 @@ export function getTopProductTypes(
 ): Array<{ productType: string; count: number; percentage: number; mostCommonIssue: string }> {
   const productTypeCounts = new Map<string, { count: number; issues: Map<string, number> }>();
   
-  for (const ticket of categorizedTickets) {
-    const rawProductType = ticket.ProductType || 'Unknown';
+  // Filter tickets that have a valid ProductType
+  const ticketsWithProductType = categorizedTickets.filter(t => t.ProductType && t.ProductType.trim() !== '');
+  
+  for (const ticket of ticketsWithProductType) {
+    const rawProductType = ticket.ProductType!;
     const productType = consolidateProductTypes(rawProductType);
     
     const existing = productTypeCounts.get(productType) || { count: 0, issues: new Map() };
@@ -305,7 +308,7 @@ export function getTopProductTypes(
     productTypeCounts.set(productType, existing);
   }
   
-  const totalTickets = categorizedTickets.length;
+  const totalWithProductType = ticketsWithProductType.length;
   const results: Array<{ productType: string; count: number; percentage: number; mostCommonIssue: string }> = [];
   
   for (const [productType, data] of productTypeCounts) {
@@ -322,7 +325,7 @@ export function getTopProductTypes(
     results.push({
       productType,
       count: data.count,
-      percentage: totalTickets > 0 ? (data.count / totalTickets) * 100 : 0,
+      percentage: totalWithProductType > 0 ? (data.count / totalWithProductType) * 100 : 0,
       mostCommonIssue
     });
   }
@@ -336,12 +339,14 @@ export function getTopProductTypes(
  * Get top product type for a specific category (with count)
  */
 export function getTopProductTypeForCategory(tickets: CategorizedTicket[]): string {
-  if (tickets.length === 0) return '-';
+  // Filter tickets that have a valid ProductType
+  const ticketsWithProductType = tickets.filter(t => t.ProductType && t.ProductType.trim() !== '');
+  if (ticketsWithProductType.length === 0) return '-';
   
   const productTypeCounts = new Map<string, number>();
   
-  for (const ticket of tickets) {
-    const rawProductType = ticket.ProductType || 'Unknown';
+  for (const ticket of ticketsWithProductType) {
+    const rawProductType = ticket.ProductType!;
     const productType = consolidateProductTypes(rawProductType);
     productTypeCounts.set(productType, (productTypeCounts.get(productType) || 0) + 1);
   }
@@ -361,6 +366,68 @@ export function getTopProductTypeForCategory(tickets: CategorizedTicket[]): stri
 }
 
 /**
+ * Stuck ticket analysis result
+ */
+export interface StuckTicketAnalysis {
+  totalStuckTickets: number;
+  stuckPercentage: number;
+  topCategories: Array<{
+    category: string;
+    count: number;
+    percentage: number;
+  }>;
+}
+
+/**
+ * Get stuck ticket analysis - tickets where "Ticket status" is "Stuck"
+ * Returns top 5 issue categories specifically for stuck tickets
+ */
+export function getStuckTicketAnalysis(
+  categorizedTickets: CategorizedTicket[],
+  limit: number = 5
+): StuckTicketAnalysis {
+  // Filter for stuck tickets (case-insensitive check for "Stuck" status)
+  const stuckTickets = categorizedTickets.filter(
+    ticket => ticket['Ticket status']?.toLowerCase() === 'stuck'
+  );
+  
+  const totalStuckTickets = stuckTickets.length;
+  const stuckPercentage = categorizedTickets.length > 0 
+    ? (totalStuckTickets / categorizedTickets.length) * 100 
+    : 0;
+  
+  // Count categories for stuck tickets
+  const categoryCounts = new Map<string, number>();
+  
+  for (const ticket of stuckTickets) {
+    const categories = ticket.categories || [ticket.category];
+    for (const category of categories) {
+      categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
+    }
+  }
+  
+  // Build and sort category results
+  const topCategories: Array<{ category: string; count: number; percentage: number }> = [];
+  
+  for (const [category, count] of categoryCounts) {
+    topCategories.push({
+      category,
+      count,
+      percentage: totalStuckTickets > 0 ? (count / totalStuckTickets) * 100 : 0
+    });
+  }
+  
+  // Sort by count descending and take top N
+  topCategories.sort((a, b) => b.count - a.count);
+  
+  return {
+    totalStuckTickets,
+    stuckPercentage,
+    topCategories: topCategories.slice(0, limit)
+  };
+}
+
+/**
  * Get top product types with detailed category breakdown
  */
 export interface ProductTypeCategoryBreakdown {
@@ -376,8 +443,11 @@ export function getTopProductTypesWithCategoryBreakdown(
 ): ProductTypeCategoryBreakdown[] {
   const productTypeData = new Map<string, Map<string, number>>();
   
-  for (const ticket of categorizedTickets) {
-    const rawProductType = ticket.ProductType || 'Unknown';
+  // Filter tickets that have a valid ProductType
+  const ticketsWithProductType = categorizedTickets.filter(t => t.ProductType && t.ProductType.trim() !== '');
+  
+  for (const ticket of ticketsWithProductType) {
+    const rawProductType = ticket.ProductType!;
     const productType = consolidateProductTypes(rawProductType);
     const categories = ticket.categories || [ticket.category];
     
@@ -391,7 +461,7 @@ export function getTopProductTypesWithCategoryBreakdown(
     }
   }
   
-  const totalTickets = categorizedTickets.length;
+  const totalWithProductType = ticketsWithProductType.length;
   const results: ProductTypeCategoryBreakdown[] = [];
   
   for (const [productType, categoryMap] of productTypeData) {
@@ -409,7 +479,7 @@ export function getTopProductTypesWithCategoryBreakdown(
     results.push({
       productType,
       totalCount,
-      percentage: totalTickets > 0 ? (totalCount / totalTickets) * 100 : 0,
+      percentage: totalWithProductType > 0 ? (totalCount / totalWithProductType) * 100 : 0,
       categoryBreakdown
     });
   }

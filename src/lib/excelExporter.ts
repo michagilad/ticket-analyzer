@@ -6,7 +6,7 @@ import {
   ANALYSIS_CONFIGS,
   CategorizedTicket
 } from './types';
-import { getTopProductTypes, getTopProductTypeForCategory, getTopProductTypesWithCategoryBreakdown } from './analyzer';
+import { getTopProductTypes, getTopProductTypeForCategory, getTopProductTypesWithCategoryBreakdown, getStuckTicketAnalysis } from './analyzer';
 
 /**
  * Create a visual bar chart using block characters
@@ -71,7 +71,8 @@ async function createDashboardSheet(
   result: AnalysisResult,
   analysisType: AnalysisType,
   allTickets: CategorizedTicket[],
-  includeComparison: boolean = false
+  includeComparison: boolean = false,
+  includeStuckTickets: boolean = false
 ): Promise<void> {
   const config = ANALYSIS_CONFIGS[analysisType];
   const ws = workbook.addWorksheet('Dashboard');
@@ -212,8 +213,8 @@ async function createDashboardSheet(
     currentRow++;
   }
   
-  // TOP 5 PRODUCT TYPES
-  if (allTickets.some(t => t.ProductType)) {
+  // TOP 5 PRODUCT TYPES (skip for dimensions analysis)
+  if (analysisType !== 'dimensions' && allTickets.some(t => t.ProductType && t.ProductType.trim() !== '')) {
     const topProducts = getTopProductTypes(allTickets, 5);
     if (topProducts.length > 0) {
       // Section header
@@ -249,9 +250,24 @@ async function createDashboardSheet(
   }
   
   // CATEGORY BREAKDOWN
-  const categoryColCount = hasComparison 
-    ? (config.includeDevFactory && config.includeIssueType ? 9 : 7)
-    : (config.includeDevFactory && config.includeIssueType ? 7 : 5);
+  let categoryColCount: number;
+  if (hasComparison) {
+    if (config.includeDevFactory && config.includeIssueType) {
+      categoryColCount = 9;
+    } else if (analysisType === 'dimensions') {
+      categoryColCount = 6; // No Top Product Type column
+    } else {
+      categoryColCount = 7;
+    }
+  } else {
+    if (config.includeDevFactory && config.includeIssueType) {
+      categoryColCount = 7;
+    } else if (analysisType === 'dimensions') {
+      categoryColCount = 4; // No Top Product Type column
+    } else {
+      categoryColCount = 5;
+    }
+  }
   
   ws.mergeCells(currentRow, 1, currentRow, categoryColCount);
   const catSectionCell = ws.getCell(currentRow, 1);
@@ -260,16 +276,24 @@ async function createDashboardSheet(
   catSectionCell.font = STYLES.sectionHeader.font;
   currentRow++;
   
-  // Category headers
+  // Category headers (skip Top Product Type for dimensions analysis)
   let catHeaders: string[];
   if (hasComparison) {
-    catHeaders = config.includeDevFactory && config.includeIssueType
-      ? ['Category', 'Past', 'Current', 'Change', '% Change', 'Trend', 'Dev/Factory', 'Issue Type', 'Top Product Type']
-      : ['Category', 'Past', 'Current', 'Change', '% Change', 'Trend', 'Top Product Type'];
+    if (config.includeDevFactory && config.includeIssueType) {
+      catHeaders = ['Category', 'Past', 'Current', 'Change', '% Change', 'Trend', 'Dev/Factory', 'Issue Type', 'Top Product Type'];
+    } else if (analysisType === 'dimensions') {
+      catHeaders = ['Category', 'Past', 'Current', 'Change', '% Change', 'Trend'];
+    } else {
+      catHeaders = ['Category', 'Past', 'Current', 'Change', '% Change', 'Trend', 'Top Product Type'];
+    }
   } else {
-    catHeaders = config.includeDevFactory && config.includeIssueType
-      ? ['Category', 'Count', 'Percentage', 'Visual', 'Dev/Factory', 'Issue Type', 'Top Product Type']
-      : ['Category', 'Count', 'Percentage', 'Visual', 'Top Product Type'];
+    if (config.includeDevFactory && config.includeIssueType) {
+      catHeaders = ['Category', 'Count', 'Percentage', 'Visual', 'Dev/Factory', 'Issue Type', 'Top Product Type'];
+    } else if (analysisType === 'dimensions') {
+      catHeaders = ['Category', 'Count', 'Percentage', 'Visual'];
+    } else {
+      catHeaders = ['Category', 'Count', 'Percentage', 'Visual', 'Top Product Type'];
+    }
   }
   
   catHeaders.forEach((header, idx) => {
@@ -282,9 +306,13 @@ async function createDashboardSheet(
   });
   currentRow++;
   
-  // Category data
-  for (const cat of result.categoryResults) {
-    const topProduct = getTopProductTypeForCategory(cat.tickets);
+  // Category data (skip Uncategorized for dimensions analysis)
+  const categoriesToShow = analysisType === 'dimensions' 
+    ? result.categoryResults.filter(c => c.category !== 'Uncategorized')
+    : result.categoryResults;
+  
+  for (const cat of categoriesToShow) {
+    const topProduct = analysisType !== 'dimensions' ? getTopProductTypeForCategory(cat.tickets) : '';
     
     if (hasComparison) {
       const catComp = comparison!.categoryComparisons.find(c => c.category === cat.category);
@@ -311,7 +339,7 @@ async function createDashboardSheet(
         ws.getCell(currentRow, 7).value = cat.metadata.devFactory || '';
         ws.getCell(currentRow, 8).value = cat.metadata.issueType || '';
         ws.getCell(currentRow, 9).value = topProduct;
-      } else {
+      } else if (analysisType !== 'dimensions') {
         ws.getCell(currentRow, 7).value = topProduct;
       }
     } else {
@@ -324,7 +352,7 @@ async function createDashboardSheet(
         ws.getCell(currentRow, 5).value = cat.metadata.devFactory || '';
         ws.getCell(currentRow, 6).value = cat.metadata.issueType || '';
         ws.getCell(currentRow, 7).value = topProduct;
-      } else {
+      } else if (analysisType !== 'dimensions') {
         ws.getCell(currentRow, 5).value = topProduct;
       }
     }
@@ -453,9 +481,10 @@ async function createDashboardSheet(
     currentRow++;
   }
   
-  // TOP 10 PRODUCT TYPES BY CATEGORY
-  // Always show this section - it will show product types from tickets that have ProductType
-  const topProductTypes = getTopProductTypesWithCategoryBreakdown(allTickets, 10);
+  // TOP 10 PRODUCT TYPES BY CATEGORY (skip for dimensions analysis)
+  const topProductTypes = analysisType !== 'dimensions' 
+    ? getTopProductTypesWithCategoryBreakdown(allTickets, 10) 
+    : [];
   if (topProductTypes.length > 0) {
     currentRow++; // Add spacing
     
@@ -489,6 +518,43 @@ async function createDashboardSheet(
       ws.getCell(currentRow, 4).value = createVisualBar(product.percentage, 20);
       ws.getCell(currentRow, 5).value = categoryStr;
       currentRow++;
+    }
+  }
+  
+  // STUCK TICKETS ANALYSIS
+  if (includeStuckTickets) {
+    const stuckAnalysis = getStuckTicketAnalysis(allTickets, 5);
+    
+    if (stuckAnalysis.totalStuckTickets > 0) {
+      currentRow++; // Add spacing
+      
+      ws.mergeCells(currentRow, 1, currentRow, 4);
+      const stuckSectionCell = ws.getCell(currentRow, 1);
+      stuckSectionCell.value = `STUCK TICKETS ANALYSIS (${stuckAnalysis.totalStuckTickets} tickets - ${stuckAnalysis.stuckPercentage.toFixed(1)}% of total)`;
+      stuckSectionCell.fill = STYLES.sectionHeader.fill;
+      stuckSectionCell.font = STYLES.sectionHeader.font;
+      currentRow++;
+      
+      // Column headers for stuck tickets
+      const stuckHeaders = ['Issue Category', 'Count', '% of Stuck', 'Visual'];
+      stuckHeaders.forEach((header, idx) => {
+        const cell = ws.getCell(currentRow, idx + 1);
+        cell.value = header;
+        cell.fill = STYLES.columnHeader.fill;
+        cell.font = STYLES.columnHeader.font;
+        cell.alignment = STYLES.columnHeader.alignment;
+        cell.border = STYLES.columnHeader.border;
+      });
+      currentRow++;
+      
+      // Top 5 categories for stuck tickets
+      for (const cat of stuckAnalysis.topCategories) {
+        ws.getCell(currentRow, 1).value = cat.category;
+        ws.getCell(currentRow, 2).value = cat.count;
+        ws.getCell(currentRow, 3).value = `${cat.percentage.toFixed(1)}%`;
+        ws.getCell(currentRow, 4).value = createVisualBar(cat.percentage, 20);
+        currentRow++;
+      }
     }
   }
 }
@@ -577,14 +643,15 @@ export async function exportToExcel(
   result: AnalysisResult,
   analysisType: AnalysisType,
   allTickets: CategorizedTicket[],
-  includeComparison: boolean = false
+  includeComparison: boolean = false,
+  includeStuckTickets: boolean = false
 ): Promise<Blob> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'QC Ticket Analyzer';
   workbook.created = new Date();
   
   // Create dashboard sheet
-  await createDashboardSheet(workbook, result, analysisType, allTickets, includeComparison);
+  await createDashboardSheet(workbook, result, analysisType, allTickets, includeComparison, includeStuckTickets);
   
   // Create category sheets (only for categories with tickets)
   for (const categoryResult of result.categoryResults) {
