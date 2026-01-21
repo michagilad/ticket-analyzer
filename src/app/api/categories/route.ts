@@ -13,8 +13,15 @@ function getRedisClient(): Redis | null {
   }
   
   try {
+    // Parse the Redis URL to extract the token
+    // Format: https://:<token>@<host>
+    const url = new URL(redisUrl);
+    const token = url.password;
+    const baseUrl = `${url.protocol}//${url.host}`;
+    
     return new Redis({
-      url: redisUrl,
+      url: baseUrl,
+      token: token,
     });
   } catch (error) {
     console.error('Failed to create Redis client:', error);
