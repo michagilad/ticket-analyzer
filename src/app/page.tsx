@@ -10,7 +10,8 @@ import {
   ArrowRight,
   BarChart3,
   Settings2,
-  GitCompare
+  GitCompare,
+  FileText
 } from 'lucide-react';
 import FileUpload, { FileType } from '@/components/FileUpload';
 import AnalysisTypeSelector from '@/components/AnalysisTypeSelector';
@@ -27,6 +28,7 @@ import {
 import { runAnalysis, generateLastWeekData, LastWeekData } from '@/lib/analyzer';
 import { processTickets } from '@/lib/categorizer';
 import { exportToExcel, generateFilename } from '@/lib/excelExporter';
+import { generatePDFDashboard, downloadPDFDashboard } from '@/lib/pdfDashboard';
 
 type TabType = 'analyzer' | 'categories';
 
@@ -220,6 +222,15 @@ export default function Home() {
     }
   };
 
+  const handleDownloadPDF = async (resultWithType: AnalysisResultWithType) => {
+    const blob = await generatePDFDashboard(resultWithType.result, {
+      title: `${ANALYSIS_CONFIGS[resultWithType.type].name} Dashboard`,
+      showComparison: resultWithType.showComparison,
+    });
+    const filename = `${ANALYSIS_CONFIGS[resultWithType.type].name.replace(/\s+/g, '_')}_Dashboard_${new Date().toISOString().split('T')[0]}.pdf`;
+    downloadPDFDashboard(blob, filename);
+  };
+
   const hasPastData = pastTicketsFile !== null;
   const activeResult = results[activeResultIndex];
 
@@ -374,23 +385,32 @@ export default function Home() {
                       </p>
                     </div>
                   </div>
-                  {results.length > 1 ? (
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={handleDownloadAll}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium hover:bg-emerald-500/20 transition-colors"
+                      onClick={() => handleDownloadPDF(results[activeResultIndex] || results[0])}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-500/10 border border-violet-500/30 text-violet-400 font-medium hover:bg-violet-500/20 transition-colors"
                     >
-                      <Download className="w-4 h-4" />
-                      Download All ({results.length} files)
+                      <FileText className="w-4 h-4" />
+                      Dashboard PDF (BETA)
                     </button>
-                  ) : (
-                    <button
-                      onClick={() => handleDownload(results[0])}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium hover:bg-emerald-500/20 transition-colors"
-                    >
-                      <Download className="w-4 h-4" />
-                      Download XLSX
-                    </button>
-                  )}
+                    {results.length > 1 ? (
+                      <button
+                        onClick={handleDownloadAll}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium hover:bg-emerald-500/20 transition-colors"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download All ({results.length} files)
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleDownload(results[0])}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium hover:bg-emerald-500/20 transition-colors"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download XLSX
+                      </button>
+                    )}
+                  </div>
                 </div>
                 
                 {/* Toggle between results and download buttons */}
