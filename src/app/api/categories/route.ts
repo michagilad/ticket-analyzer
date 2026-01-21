@@ -1,22 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
 import { CategoryConfig, DEFAULT_CATEGORIES } from '@/lib/categoryStorage';
 
 const CATEGORIES_KEY = 'qc-ticket-analyzer:categories';
+
+// Initialize Redis client from environment variable
+function getRedisClient(): Redis | null {
+  const redisUrl = process.env.KV_REDIS_URL;
+  if (!redisUrl) {
+    console.log('KV_REDIS_URL not configured');
+    return null;
+  }
+  
+  try {
+    return new Redis({
+      url: redisUrl,
+    });
+  } catch (error) {
+    console.error('Failed to create Redis client:', error);
+    return null;
+  }
+}
 
 // In-memory cache fallback for local development
 let cachedCategories: CategoryConfig | null = null;
 
 async function readCategories(): Promise<CategoryConfig> {
-  // Try Vercel KV first
-  try {
-    const data = await kv.get<CategoryConfig>(CATEGORIES_KEY);
-    if (data) {
-      cachedCategories = data;
-      return data;
+  const redis = getRedisClient();
+  
+  // Try Redis first
+  if (redis) {
+    try {
+      const data = await redis.get<CategoryConfig>(CATEGORIES_KEY);
+      if (data) {
+        cachedCategories = data;
+        return data;
+      }
+    } catch (error) {
+      console.log('Redis read error, using fallback:', error);
     }
-  } catch (error) {
-    console.log('Vercel KV not available, using fallback:', error);
   }
   
   // Fall back to in-memory cache
@@ -35,12 +57,16 @@ async function writeCategories(config: CategoryConfig): Promise<void> {
   // Always update in-memory cache
   cachedCategories = config;
   
-  // Try to persist to Vercel KV
-  try {
-    await kv.set(CATEGORIES_KEY, config);
-  } catch (error) {
-    console.error('Failed to write to Vercel KV:', error);
-    // Don't throw - we still have in-memory cache for this session
+  const redis = getRedisClient();
+  
+  // Try to persist to Redis
+  if (redis) {
+    try {
+      await redis.set(CATEGORIES_KEY, config);
+    } catch (error) {
+      console.error('Failed to write to Redis:', error);
+      // Don't throw - we still have in-memory cache for this session
+    }
   }
 }
 

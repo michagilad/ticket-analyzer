@@ -1,30 +1,46 @@
 import { NextResponse } from 'next/server';
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
 import { CategoryConfig, DEFAULT_CATEGORIES } from '@/lib/categoryStorage';
 
 const CATEGORIES_KEY = 'qc-ticket-analyzer:categories';
 
 export async function GET() {
   const result: {
-    kvAvailable: boolean;
-    kvError?: string;
+    redisAvailable: boolean;
+    redisError?: string;
     storedData: CategoryConfig | null;
     isUsingDefaults: boolean;
     categoryCount: number;
     lastUpdated: string | null;
     categories?: string[];
+    envVarPresent: boolean;
   } = {
-    kvAvailable: false,
+    redisAvailable: false,
     storedData: null,
     isUsingDefaults: true,
     categoryCount: 0,
     lastUpdated: null,
+    envVarPresent: !!process.env.KV_REDIS_URL,
   };
 
+  const redisUrl = process.env.KV_REDIS_URL;
+  
+  if (!redisUrl) {
+    result.redisError = 'KV_REDIS_URL environment variable is not set';
+    result.isUsingDefaults = true;
+    result.categoryCount = DEFAULT_CATEGORIES.length;
+    result.categories = DEFAULT_CATEGORIES.map(c => c.name);
+    return NextResponse.json(result, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    });
+  }
+
   try {
-    // Try to read from Vercel KV
-    const data = await kv.get<CategoryConfig>(CATEGORIES_KEY);
-    result.kvAvailable = true;
+    const redis = new Redis({ url: redisUrl });
+    
+    // Try to read from Redis
+    const data = await redis.get<CategoryConfig>(CATEGORIES_KEY);
+    result.redisAvailable = true;
     
     if (data) {
       result.storedData = data;
@@ -39,16 +55,14 @@ export async function GET() {
       result.categories = DEFAULT_CATEGORIES.map(c => c.name);
     }
   } catch (error) {
-    result.kvAvailable = false;
-    result.kvError = error instanceof Error ? error.message : 'Unknown error';
+    result.redisAvailable = false;
+    result.redisError = error instanceof Error ? error.message : 'Unknown error';
     result.isUsingDefaults = true;
     result.categoryCount = DEFAULT_CATEGORIES.length;
     result.categories = DEFAULT_CATEGORIES.map(c => c.name);
   }
 
   return NextResponse.json(result, {
-    headers: {
-      'Cache-Control': 'no-store, no-cache, must-revalidate',
-    },
+    headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
   });
 }
