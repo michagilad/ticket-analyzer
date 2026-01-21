@@ -26,9 +26,10 @@ import {
   ANALYSIS_CONFIGS
 } from '@/lib/types';
 import { runAnalysis, generateLastWeekData, LastWeekData } from '@/lib/analyzer';
-import { processTickets } from '@/lib/categorizer';
+import { processTickets, updateRuntimeCategories } from '@/lib/categorizer';
 import { exportToExcel, generateFilename } from '@/lib/excelExporter';
 import { generatePDFDashboard, downloadPDFDashboard } from '@/lib/pdfDashboard';
+import { CategoryConfig } from '@/lib/categoryStorage';
 
 type TabType = 'analyzer' | 'categories';
 
@@ -127,6 +128,17 @@ export default function Home() {
     setError(null);
 
     try {
+      // Fetch latest categories from API to ensure we use custom categories
+      try {
+        const categoriesResponse = await fetch('/api/categories');
+        if (categoriesResponse.ok) {
+          const categoryConfig: CategoryConfig = await categoriesResponse.json();
+          updateRuntimeCategories(categoryConfig.categories);
+        }
+      } catch (catErr) {
+        console.warn('Failed to fetch categories, using defaults:', catErr);
+      }
+
       // Parse this week's tickets CSV
       const tickets = await parseCSV<Ticket>(ticketsFile);
       

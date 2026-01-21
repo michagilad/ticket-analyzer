@@ -6,6 +6,33 @@ import {
   CATEGORY_METADATA,
   CategoryMetadata
 } from './types';
+import { StoredCategory } from './categoryStorage';
+
+// Runtime category metadata that can be updated from API
+let runtimeCategoryMetadata: Record<string, CategoryMetadata> = { ...CATEGORY_METADATA };
+let runtimeAllCategories: string[] = [...ALL_CATEGORIES];
+
+/**
+ * Update the runtime categories from stored categories (from API/Redis)
+ */
+export function updateRuntimeCategories(storedCategories: StoredCategory[]): void {
+  // Reset to defaults first
+  runtimeCategoryMetadata = { ...CATEGORY_METADATA };
+  runtimeAllCategories = [...ALL_CATEGORIES];
+  
+  // Update with stored categories
+  for (const cat of storedCategories) {
+    runtimeCategoryMetadata[cat.name] = {
+      devFactory: cat.devFactory,
+      issueType: cat.issueType
+    };
+    
+    // Add new categories that aren't in defaults
+    if (!runtimeAllCategories.includes(cat.name)) {
+      runtimeAllCategories.push(cat.name);
+    }
+  }
+}
 
 /**
  * GOLDEN RULE: If ticket name exactly matches a category name (case-insensitive), 
@@ -14,7 +41,8 @@ import {
 function checkExactMatch(ticketName: string): string | null {
   const normalizedName = ticketName.trim().toLowerCase();
   
-  for (const category of ALL_CATEGORIES) {
+  // Check runtime categories first (includes custom categories)
+  for (const category of runtimeAllCategories) {
     if (category.toLowerCase() === normalizedName) {
       return category;
     }
@@ -492,10 +520,17 @@ export function processTickets(
 }
 
 /**
- * Get category metadata
+ * Get category metadata (uses runtime categories which include custom ones)
  */
 export function getCategoryMetadata(category: string): CategoryMetadata {
-  return CATEGORY_METADATA[category] || { devFactory: '', issueType: '' };
+  return runtimeCategoryMetadata[category] || { devFactory: '', issueType: '' };
+}
+
+/**
+ * Get all runtime categories (includes custom ones)
+ */
+export function getAllCategories(): string[] {
+  return runtimeAllCategories;
 }
 
 /**
