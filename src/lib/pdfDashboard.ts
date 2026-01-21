@@ -85,7 +85,6 @@ function drawPieChart(
     // Use triangle fan approach
     for (let i = 1; i < points.length - 1; i++) {
       const triangle = [points[0], points[i], points[i + 1]];
-      // @ts-expect-error - jsPDF types don't include this overload
       pdf.triangle(
         triangle[0][0], triangle[0][1],
         triangle[1][0], triangle[1][1],
@@ -220,9 +219,7 @@ function drawDonutChart(
       ];
       
       // Draw as two triangles
-      // @ts-expect-error - jsPDF types
       pdf.triangle(points[0][0], points[0][1], points[1][0], points[1][1], points[2][0], points[2][1], 'F');
-      // @ts-expect-error - jsPDF types
       pdf.triangle(points[0][0], points[0][1], points[2][0], points[2][1], points[3][0], points[3][1], 'F');
     }
     
