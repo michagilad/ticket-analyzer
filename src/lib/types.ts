@@ -15,6 +15,7 @@ export interface Ticket {
 
 export interface ExperienceMapping {
   ProductName: string;
+  ExperienceId: string; // The Experience ID from QC App Export
   Assignee: string;
   ProductType: string;
   TemplateName: string;
@@ -93,7 +94,8 @@ export type AnalysisType =
   | 'overall' 
   | 'dimensions' 
   | 'factory' 
-  | 'label';
+  | 'label'
+  | 'custom';
 
 export interface AnalysisConfig {
   type: AnalysisType;
@@ -254,5 +256,13 @@ export const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisConfig> = {
     ],
     includeDevFactory: false,
     includeIssueType: false
+  },
+  custom: {
+    type: 'custom',
+    name: 'Custom Analysis',
+    description: 'Select specific categories to include',
+    categories: [], // Will be set dynamically
+    includeDevFactory: true,
+    includeIssueType: true
   }
 };

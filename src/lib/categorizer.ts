@@ -420,17 +420,37 @@ export function categorizeTicket(ticket: Ticket): string[] {
 }
 
 /**
+ * Extract Experience ID from a Backstage URL
+ * URL format: https://backstage.eko.com/experiences/45493255314
+ */
+function extractExperienceIdFromUrl(url: string): string | null {
+  if (!url) return null;
+  
+  // Match /experiences/ followed by the ID number
+  const match = url.match(/\/experiences\/(\d+)/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  return null;
+}
+
+/**
  * Process all tickets and return categorized results
  */
 export function processTickets(
   tickets: Ticket[], 
   mappings?: ExperienceMapping[]
 ): CategorizedTicket[] {
-  const mappingLookup = new Map<string, ExperienceMapping>();
+  // Create lookup map by ExperienceId from QC App Export
+  const mappingByExperienceId = new Map<string, ExperienceMapping>();
   
   if (mappings) {
     for (const mapping of mappings) {
-      mappingLookup.set(mapping.ProductName, mapping);
+      // Index by ExperienceId (the column name in QC App Export)
+      const expId = mapping.ExperienceId || mapping['ExperienceId'];
+      if (expId) {
+        mappingByExperienceId.set(String(expId).trim(), mapping);
+      }
     }
   }
   
@@ -438,14 +458,21 @@ export function processTickets(
   
   for (const ticket of tickets) {
     const categories = categorizeTicket(ticket);
-    const experienceId = String(ticket['Experience ID'] || '');
+    
+    // Extract Experience ID from the Backstage Experience page URL in HS Export
+    // URL format: https://backstage.eko.com/experiences/45493255314
+    const backstageUrl = ticket['Backstage Experience page'] || '';
+    const experienceId = extractExperienceIdFromUrl(backstageUrl);
+    
     const publicPreviewLink = experienceId 
       ? `https://app.eko.com/public/experiences/${experienceId}`
       : '';
     
-    // Find mapping if available
-    const associatedExp = ticket['Associated Experience'] || ticket['Experience name'] || '';
-    const mapping = mappingLookup.get(associatedExp);
+    // Find mapping by Experience ID
+    let mapping: ExperienceMapping | undefined;
+    if (experienceId && mappingByExperienceId.has(experienceId)) {
+      mapping = mappingByExperienceId.get(experienceId);
+    }
     
     // For multi-category tickets, create one entry but store all categories
     const categorizedTicket: CategorizedTicket = {

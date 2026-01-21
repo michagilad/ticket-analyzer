@@ -88,9 +88,15 @@ export function runAnalysis(
   tickets: Ticket[],
   mappings: ExperienceMapping[] | undefined,
   analysisType: AnalysisType,
-  lastWeekData?: LastWeekData
+  lastWeekData?: LastWeekData,
+  customCategories?: string[]
 ): AnalysisResult {
-  const config = ANALYSIS_CONFIGS[analysisType];
+  const config = { ...ANALYSIS_CONFIGS[analysisType] };
+  
+  // For custom analysis, use the provided categories
+  if (analysisType === 'custom' && customCategories && customCategories.length > 0) {
+    config.categories = customCategories;
+  }
   
   // Process and categorize all tickets
   const categorizedTickets = processTickets(tickets, mappings);

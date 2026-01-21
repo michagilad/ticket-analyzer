@@ -41,9 +41,10 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<TabType>('analyzer');
   const [ticketsFile, setTicketsFile] = useState<File | null>(null);
   const [mappingsFile, setMappingsFile] = useState<File | null>(null);
-  const [lastWeekTicketsFile, setLastWeekTicketsFile] = useState<File | null>(null);
-  const [lastWeekMappingsFile, setLastWeekMappingsFile] = useState<File | null>(null);
+  const [pastTicketsFile, setPastTicketsFile] = useState<File | null>(null);
+  const [pastMappingsFile, setPastMappingsFile] = useState<File | null>(null);
   const [analysisTypes, setAnalysisTypes] = useState<AnalysisType[]>(['overall']);
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState<AnalysisResultWithType[]>([]);
   const [activeResultIndex, setActiveResultIndex] = useState(0);
@@ -57,11 +58,11 @@ export default function Home() {
       case 'mappings':
         setMappingsFile(file);
         break;
-      case 'lastWeekTickets':
-        setLastWeekTicketsFile(file);
+      case 'pastTickets':
+        setPastTicketsFile(file);
         break;
-      case 'lastWeekMappings':
-        setLastWeekMappingsFile(file);
+      case 'pastMappings':
+        setPastMappingsFile(file);
         break;
     }
     // Reset results when files change
@@ -77,11 +78,11 @@ export default function Home() {
       case 'mappings':
         setMappingsFile(null);
         break;
-      case 'lastWeekTickets':
-        setLastWeekTicketsFile(null);
+      case 'pastTickets':
+        setPastTicketsFile(null);
         break;
-      case 'lastWeekMappings':
-        setLastWeekMappingsFile(null);
+      case 'pastMappings':
+        setPastMappingsFile(null);
         break;
     }
     setResults([]);
@@ -114,6 +115,12 @@ export default function Home() {
       return;
     }
 
+    // Check if custom analysis is selected but no categories chosen
+    if (analysisTypes.includes('custom') && customCategories.length === 0) {
+      setError('Please select at least one category for custom analysis');
+      return;
+    }
+
     setIsAnalyzing(true);
     setError(null);
 
@@ -131,18 +138,18 @@ export default function Home() {
         mappings = await parseCSV<ExperienceMapping>(mappingsFile);
       }
 
-      // Parse last week's CSVs if provided
-      let lastWeekData: LastWeekData | undefined;
-      if (lastWeekTicketsFile) {
+      // Parse past CSVs if provided
+      let pastData: LastWeekData | undefined;
+      if (pastTicketsFile) {
         try {
-          const lastWeekTickets = await parseCSV<Ticket>(lastWeekTicketsFile);
-          let lastWeekMappings: ExperienceMapping[] | undefined;
-          if (lastWeekMappingsFile) {
-            lastWeekMappings = await parseCSV<ExperienceMapping>(lastWeekMappingsFile);
+          const pastTickets = await parseCSV<Ticket>(pastTicketsFile);
+          let pastMappings: ExperienceMapping[] | undefined;
+          if (pastMappingsFile) {
+            pastMappings = await parseCSV<ExperienceMapping>(pastMappingsFile);
           }
-          lastWeekData = generateLastWeekData(lastWeekTickets, lastWeekMappings);
+          pastData = generateLastWeekData(pastTickets, pastMappings);
         } catch (err) {
-          console.error('Failed to parse last week data:', err);
+          console.error('Failed to parse past data:', err);
           // Continue without comparison data
         }
       }
@@ -151,12 +158,19 @@ export default function Home() {
       const processed = processTickets(tickets, mappings);
 
       // Determine if comparison data is available
-      const hasComparison = !!lastWeekData && lastWeekData.totalTickets > 0;
+      const hasComparison = !!pastData && pastData.totalTickets > 0;
 
       // Run analysis for each selected type
       const allResults: AnalysisResultWithType[] = [];
       for (const type of analysisTypes) {
-        const analysisResult = runAnalysis(tickets, mappings, type, lastWeekData);
+        // For custom analysis, pass the selected categories
+        const analysisResult = runAnalysis(
+          tickets, 
+          mappings, 
+          type, 
+          pastData,
+          type === 'custom' ? customCategories : undefined
+        );
         allResults.push({
           type,
           result: analysisResult,
@@ -181,8 +195,8 @@ export default function Home() {
     ));
   };
 
-  const handleDownload = (resultWithType: AnalysisResultWithType) => {
-    const blob = exportToExcel(resultWithType.result, resultWithType.type, resultWithType.categorizedTickets, resultWithType.showComparison);
+  const handleDownload = async (resultWithType: AnalysisResultWithType) => {
+    const blob = await exportToExcel(resultWithType.result, resultWithType.type, resultWithType.categorizedTickets, resultWithType.showComparison);
     const filename = generateFilename(resultWithType.type, resultWithType.showComparison);
     
     // Create download link
@@ -196,16 +210,17 @@ export default function Home() {
     URL.revokeObjectURL(url);
   };
 
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
     // Download each file with a small delay to avoid browser blocking
-    results.forEach((resultWithType, index) => {
-      setTimeout(() => {
-        handleDownload(resultWithType);
-      }, index * 500);
-    });
+    for (let i = 0; i < results.length; i++) {
+      await handleDownload(results[i]);
+      if (i < results.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
   };
 
-  const hasLastWeekData = lastWeekTicketsFile !== null;
+  const hasPastData = pastTicketsFile !== null;
   const activeResult = results[activeResultIndex];
 
   return (
@@ -292,8 +307,8 @@ export default function Home() {
                 onFileUpload={handleFileUpload}
                 ticketsFile={ticketsFile}
                 mappingsFile={mappingsFile}
-                lastWeekTicketsFile={lastWeekTicketsFile}
-                lastWeekMappingsFile={lastWeekMappingsFile}
+                pastTicketsFile={pastTicketsFile}
+                pastMappingsFile={pastMappingsFile}
                 onRemoveFile={handleRemoveFile}
               />
             </section>
@@ -303,6 +318,8 @@ export default function Home() {
               <AnalysisTypeSelector
                 selectedTypes={analysisTypes}
                 onTypesChange={setAnalysisTypes}
+                customCategories={customCategories}
+                onCustomCategoriesChange={setCustomCategories}
               />
             </section>
 
@@ -353,7 +370,7 @@ export default function Home() {
                       <h2 className="text-lg font-semibold text-slate-200">Analysis Results</h2>
                       <p className="text-sm text-slate-500">
                         {results[0].result.totalTickets} tickets analyzed • {results.length} report{results.length > 1 ? 's' : ''} generated
-                        {hasLastWeekData && ' • Comparison available'}
+                        {hasPastData && ' • Comparison available'}
                       </p>
                     </div>
                   </div>
@@ -412,7 +429,7 @@ export default function Home() {
                       <GitCompare className="w-4 h-4 text-blue-400" />
                       <span className="text-sm text-blue-300">Week-over-Week Comparison</span>
                       <span className="text-xs text-blue-400/70">
-                        (Last week: {activeResult.result.comparison.lastWeekTotalTickets} tickets)
+                        (Past: {activeResult.result.comparison.lastWeekTotalTickets} tickets)
                       </span>
                     </div>
                     <button
@@ -448,7 +465,7 @@ export default function Home() {
         <footer className="mt-16 text-center text-sm text-slate-600">
           <p>QC Ticket Analyzer • Built for Vercel deployment</p>
         </footer>
-      </div>
-    </main>
+        </div>
+      </main>
   );
 }

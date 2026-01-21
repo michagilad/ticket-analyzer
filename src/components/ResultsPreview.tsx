@@ -91,7 +91,7 @@ export default function ResultsPreview({ result, analysisType, showComparison = 
           </p>
           {hasComparison && comparison.lastWeekApprovedExperiences > 0 && (
             <p className="text-xs text-slate-500 mt-1">
-              Last week: {comparison.lastWeekApprovedExperiences}
+              Past: {comparison.lastWeekApprovedExperiences}
             </p>
           )}
         </div>
@@ -124,9 +124,9 @@ export default function ResultsPreview({ result, analysisType, showComparison = 
                 <Minus className="w-5 h-5 text-slate-400" />
               )}
               <div>
-                <p className="text-sm font-semibold text-slate-200">Week-over-Week Change</p>
+                <p className="text-sm font-semibold text-slate-200">Comparison Change</p>
                 <p className="text-xs text-slate-400">
-                  {comparison.lastWeekTotalTickets} tickets last week → {result.totalTickets} this week
+                  {comparison.lastWeekTotalTickets} tickets (past) → {result.totalTickets} (current)
                 </p>
               </div>
             </div>
@@ -211,7 +211,7 @@ export default function ResultsPreview({ result, analysisType, showComparison = 
         <h4 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
           <BarChart3 className="w-4 h-4 text-slate-400" />
           Top Categories
-          {hasComparison && <span className="text-xs text-slate-500 font-normal ml-2">(with week-over-week change)</span>}
+          {hasComparison && <span className="text-xs text-slate-500 font-normal ml-2">(with comparison change)</span>}
         </h4>
         <div className="space-y-3">
           {topCategories.map((cat, index) => {
@@ -247,7 +247,7 @@ export default function ResultsPreview({ result, analysisType, showComparison = 
                 </div>
                 {hasComparison && catComparison && catComparison.lastWeek > 0 && (
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Last week: {catComparison.lastWeek}
+                    Past: {catComparison.lastWeek}
                   </p>
                 )}
               </div>
