@@ -327,7 +327,7 @@ export function getTopProductTypes(
 }
 
 /**
- * Get top product type for a specific category
+ * Get top product type for a specific category (with count)
  */
 export function getTopProductTypeForCategory(tickets: CategorizedTicket[]): string {
   if (tickets.length === 0) return '-';
@@ -350,5 +350,65 @@ export function getTopProductTypeForCategory(tickets: CategorizedTicket[]): stri
     }
   }
   
-  return topProductType || '-';
+  if (!topProductType) return '-';
+  return `${topProductType} (${maxCount})`;
+}
+
+/**
+ * Get top product types with detailed category breakdown
+ */
+export interface ProductTypeCategoryBreakdown {
+  productType: string;
+  totalCount: number;
+  percentage: number;
+  categoryBreakdown: Array<{ category: string; count: number }>;
+}
+
+export function getTopProductTypesWithCategoryBreakdown(
+  categorizedTickets: CategorizedTicket[],
+  limit: number = 10
+): ProductTypeCategoryBreakdown[] {
+  const productTypeData = new Map<string, Map<string, number>>();
+  
+  for (const ticket of categorizedTickets) {
+    const rawProductType = ticket.ProductType || 'Unknown';
+    const productType = consolidateProductTypes(rawProductType);
+    const categories = ticket.categories || [ticket.category];
+    
+    if (!productTypeData.has(productType)) {
+      productTypeData.set(productType, new Map());
+    }
+    
+    const categoryMap = productTypeData.get(productType)!;
+    for (const category of categories) {
+      categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
+    }
+  }
+  
+  const totalTickets = categorizedTickets.length;
+  const results: ProductTypeCategoryBreakdown[] = [];
+  
+  for (const [productType, categoryMap] of productTypeData) {
+    let totalCount = 0;
+    const categoryBreakdown: Array<{ category: string; count: number }> = [];
+    
+    for (const [category, count] of categoryMap) {
+      totalCount += count;
+      categoryBreakdown.push({ category, count });
+    }
+    
+    // Sort categories by count descending
+    categoryBreakdown.sort((a, b) => b.count - a.count);
+    
+    results.push({
+      productType,
+      totalCount,
+      percentage: totalTickets > 0 ? (totalCount / totalTickets) * 100 : 0,
+      categoryBreakdown
+    });
+  }
+  
+  // Sort by total count descending and take top N
+  results.sort((a, b) => b.totalCount - a.totalCount);
+  return results.slice(0, limit);
 }

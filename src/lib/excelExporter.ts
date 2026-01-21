@@ -6,7 +6,7 @@ import {
   ANALYSIS_CONFIGS,
   CategorizedTicket
 } from './types';
-import { getTopProductTypes } from './analyzer';
+import { getTopProductTypes, getTopProductTypeForCategory, getTopProductTypesWithCategoryBreakdown } from './analyzer';
 
 /**
  * Create a visual bar chart using block characters
@@ -120,7 +120,7 @@ function createDashboardSheet(
   if (hasComparison) {
     // With comparison columns
     if (config.includeDevFactory && config.includeIssueType) {
-      rows.push(['Category', 'This Week', 'Last Week', 'Change', '% Change', 'Trend', 'Percentage', 'Visual', 'Dev/Factory', 'Issue Type']);
+      rows.push(['Category', 'This Week', 'Last Week', 'Change', '% Change', 'Trend', 'Percentage', 'Visual', 'Dev/Factory', 'Issue Type', 'Top Product Type']);
       
       for (const cat of result.categoryResults) {
         const catComp = comparison.categoryComparisons.find(c => c.category === cat.category);
@@ -128,6 +128,7 @@ function createDashboardSheet(
         const change = catComp?.change || cat.count;
         const changePercent = catComp?.changePercent || (cat.count > 0 ? 100 : 0);
         const trend = change < 0 ? '↓' : change > 0 ? '↑' : '→';
+        const topProduct = getTopProductTypeForCategory(cat.tickets);
         
         rows.push([
           cat.category,
@@ -139,11 +140,12 @@ function createDashboardSheet(
           `${cat.percentage.toFixed(1)}%`,
           createVisualBar(cat.percentage),
           cat.metadata.devFactory || '',
-          cat.metadata.issueType || ''
+          cat.metadata.issueType || '',
+          topProduct
         ]);
       }
     } else {
-      rows.push(['Category', 'This Week', 'Last Week', 'Change', '% Change', 'Trend', 'Percentage', 'Visual']);
+      rows.push(['Category', 'This Week', 'Last Week', 'Change', '% Change', 'Trend', 'Percentage', 'Visual', 'Top Product Type']);
       
       for (const cat of result.categoryResults) {
         const catComp = comparison.categoryComparisons.find(c => c.category === cat.category);
@@ -151,6 +153,7 @@ function createDashboardSheet(
         const change = catComp?.change || cat.count;
         const changePercent = catComp?.changePercent || (cat.count > 0 ? 100 : 0);
         const trend = change < 0 ? '↓' : change > 0 ? '↑' : '→';
+        const topProduct = getTopProductTypeForCategory(cat.tickets);
         
         rows.push([
           cat.category,
@@ -160,34 +163,39 @@ function createDashboardSheet(
           `${changePercent}%`,
           trend,
           `${cat.percentage.toFixed(1)}%`,
-          createVisualBar(cat.percentage)
+          createVisualBar(cat.percentage),
+          topProduct
         ]);
       }
     }
   } else {
     // Without comparison
     if (config.includeDevFactory && config.includeIssueType) {
-      rows.push(['Category', 'Count', 'Percentage', 'Visual', 'Dev/Factory', 'Issue Type']);
+      rows.push(['Category', 'Count', 'Percentage', 'Visual', 'Dev/Factory', 'Issue Type', 'Top Product Type']);
       
       for (const cat of result.categoryResults) {
+        const topProduct = getTopProductTypeForCategory(cat.tickets);
         rows.push([
           cat.category,
           cat.count,
           `${cat.percentage.toFixed(1)}%`,
           createVisualBar(cat.percentage),
           cat.metadata.devFactory || '',
-          cat.metadata.issueType || ''
+          cat.metadata.issueType || '',
+          topProduct
         ]);
       }
     } else {
-      rows.push(['Category', 'Count', 'Percentage', 'Visual']);
+      rows.push(['Category', 'Count', 'Percentage', 'Visual', 'Top Product Type']);
       
       for (const cat of result.categoryResults) {
+        const topProduct = getTopProductTypeForCategory(cat.tickets);
         rows.push([
           cat.category,
           cat.count,
           `${cat.percentage.toFixed(1)}%`,
-          createVisualBar(cat.percentage)
+          createVisualBar(cat.percentage),
+          topProduct
         ]);
       }
     }
@@ -273,13 +281,40 @@ function createDashboardSheet(
         ]);
       }
     }
+    rows.push([]);
+  }
+  
+  // Top 10 Product Types with Category Breakdown
+  if (allTickets.some(t => t.ProductType)) {
+    const topProductTypes = getTopProductTypesWithCategoryBreakdown(allTickets, 10);
+    if (topProductTypes.length > 0) {
+      rows.push(['TOP 10 PRODUCT TYPES BY CATEGORY']);
+      rows.push(['Product Type', 'Total Tickets', '% of Total', 'Visual', 'Category Breakdown']);
+      
+      for (const product of topProductTypes) {
+        // Format category breakdown as "Category1 (X), Category2 (Y), ..."
+        const categoryStr = product.categoryBreakdown
+          .slice(0, 5) // Show top 5 categories per product type
+          .map(c => `${c.category} (${c.count})`)
+          .join(', ');
+        
+        rows.push([
+          product.productType,
+          product.totalCount,
+          `${product.percentage.toFixed(1)}%`,
+          createVisualBar(product.percentage, 20),
+          categoryStr
+        ]);
+      }
+      rows.push([]);
+    }
   }
   
   const ws = XLSX.utils.aoa_to_sheet(rows);
   
   // Set column widths
   ws['!cols'] = [
-    { wch: 45 }, // Category
+    { wch: 45 }, // Category / Product Type
     { wch: 12 }, // Count/This Week
     { wch: 12 }, // Last Week
     { wch: 12 }, // Change
@@ -289,6 +324,8 @@ function createDashboardSheet(
     { wch: 35 }, // Visual
     { wch: 12 }, // Dev/Factory
     { wch: 12 }, // Issue Type
+    { wch: 30 }, // Top Product Type
+    { wch: 80 }, // Category Breakdown (for product types section)
   ];
   
   return ws;
