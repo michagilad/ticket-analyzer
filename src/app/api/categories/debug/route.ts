@@ -1,21 +1,8 @@
 import { NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis';
+import Redis from 'ioredis';
 import { CategoryConfig, DEFAULT_CATEGORIES } from '@/lib/categoryStorage';
 
 const CATEGORIES_KEY = 'qc-ticket-analyzer:categories';
-
-function parseRedisUrl(redisUrl: string): { url: string; token: string } | null {
-  try {
-    // Parse the Redis URL to extract the token
-    // Format: https://:<token>@<host> or redis://:<token>@<host>
-    const url = new URL(redisUrl);
-    const token = url.password;
-    const baseUrl = `${url.protocol}//${url.host}`;
-    return { url: baseUrl, token };
-  } catch {
-    return null;
-  }
-}
 
 export async function GET() {
   const result: {
@@ -27,6 +14,7 @@ export async function GET() {
     lastUpdated: string | null;
     categories?: string[];
     envVarPresent: boolean;
+    redisHost?: string;
   } = {
     redisAvailable: false,
     storedData: null,
@@ -48,33 +36,30 @@ export async function GET() {
     });
   }
 
-  const parsed = parseRedisUrl(redisUrl);
-  if (!parsed) {
-    result.redisError = 'Failed to parse KV_REDIS_URL';
-    result.isUsingDefaults = true;
-    result.categoryCount = DEFAULT_CATEGORIES.length;
-    result.categories = DEFAULT_CATEGORIES.map(c => c.name);
-    return NextResponse.json(result, {
-      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
-    });
+  // Extract host for debugging (don't show full URL with credentials)
+  try {
+    const url = new URL(redisUrl);
+    result.redisHost = url.host;
+  } catch {
+    result.redisHost = 'invalid-url';
   }
 
+  let redis: Redis | null = null;
+  
   try {
-    const redis = new Redis({
-      url: parsed.url,
-      token: parsed.token,
-    });
+    redis = new Redis(redisUrl);
     
-    // Try to read from Redis
-    const data = await redis.get<CategoryConfig>(CATEGORIES_KEY);
+    // Try to read from Redis with a timeout
+    const data = await redis.get(CATEGORIES_KEY);
     result.redisAvailable = true;
     
     if (data) {
-      result.storedData = data;
+      const parsed = JSON.parse(data) as CategoryConfig;
+      result.storedData = parsed;
       result.isUsingDefaults = false;
-      result.categoryCount = data.categories.length;
-      result.lastUpdated = data.lastUpdated;
-      result.categories = data.categories.map(c => c.name);
+      result.categoryCount = parsed.categories.length;
+      result.lastUpdated = parsed.lastUpdated;
+      result.categories = parsed.categories.map(c => c.name);
     } else {
       result.storedData = null;
       result.isUsingDefaults = true;
@@ -87,6 +72,14 @@ export async function GET() {
     result.isUsingDefaults = true;
     result.categoryCount = DEFAULT_CATEGORIES.length;
     result.categories = DEFAULT_CATEGORIES.map(c => c.name);
+  } finally {
+    if (redis) {
+      try {
+        await redis.quit();
+      } catch {
+        // Ignore quit errors
+      }
+    }
   }
 
   return NextResponse.json(result, {

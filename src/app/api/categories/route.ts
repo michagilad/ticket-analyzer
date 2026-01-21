@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis';
+import Redis from 'ioredis';
 import { CategoryConfig, DEFAULT_CATEGORIES } from '@/lib/categoryStorage';
 
 const CATEGORIES_KEY = 'qc-ticket-analyzer:categories';
@@ -13,16 +13,7 @@ function getRedisClient(): Redis | null {
   }
   
   try {
-    // Parse the Redis URL to extract the token
-    // Format: https://:<token>@<host>
-    const url = new URL(redisUrl);
-    const token = url.password;
-    const baseUrl = `${url.protocol}//${url.host}`;
-    
-    return new Redis({
-      url: baseUrl,
-      token: token,
-    });
+    return new Redis(redisUrl);
   } catch (error) {
     console.error('Failed to create Redis client:', error);
     return null;
@@ -38,10 +29,13 @@ async function readCategories(): Promise<CategoryConfig> {
   // Try Redis first
   if (redis) {
     try {
-      const data = await redis.get<CategoryConfig>(CATEGORIES_KEY);
+      const data = await redis.get(CATEGORIES_KEY);
+      await redis.quit();
+      
       if (data) {
-        cachedCategories = data;
-        return data;
+        const parsed = JSON.parse(data) as CategoryConfig;
+        cachedCategories = parsed;
+        return parsed;
       }
     } catch (error) {
       console.log('Redis read error, using fallback:', error);
@@ -69,7 +63,8 @@ async function writeCategories(config: CategoryConfig): Promise<void> {
   // Try to persist to Redis
   if (redis) {
     try {
-      await redis.set(CATEGORIES_KEY, config);
+      await redis.set(CATEGORIES_KEY, JSON.stringify(config));
+      await redis.quit();
     } catch (error) {
       console.error('Failed to write to Redis:', error);
       // Don't throw - we still have in-memory cache for this session
