@@ -722,6 +722,7 @@ export async function exportToExcel(
   analysisType: AnalysisType,
   allTickets: CategorizedTicket[],
   includeComparison: boolean = false,
+  includeStuckTickets: boolean = false,
   storedIssues?: any[]
 ): Promise<Blob> {
   const workbook = new ExcelJS.Workbook();
@@ -759,7 +760,7 @@ export async function exportToExcel(
   }
   
   // Create dashboard sheet
-  await createDashboardSheet(workbook, result, analysisType, allTickets, includeComparison, issueComments);
+  await createDashboardSheet(workbook, result, analysisType, allTickets, includeComparison, includeStuckTickets, issueComments);
   
   // Create category sheets (only for categories with tickets)
   for (const issueResult of result.issueResults) {
