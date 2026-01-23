@@ -405,9 +405,9 @@ export function getStuckTicketAnalysis(
   const categoryCounts = new Map<string, number>();
   
   for (const ticket of stuckTickets) {
-    const categories = ticket.categories || [ticket.category];
-    for (const category of categories) {
-      categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
+    const issues = ticket.issues || [ticket.issue];
+    for (const issue of issues) {
+      categoryCounts.set(issue, (categoryCounts.get(issue) || 0) + 1);
     }
   }
   
