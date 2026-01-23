@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Redis from 'ioredis';
-import { CategoryConfig, DEFAULT_CATEGORIES } from '@/lib/categoryStorage';
+import { IssueConfig, DEFAULT_ISSUES } from '@/lib/categoryStorage';
 
 const CATEGORIES_KEY = 'qc-ticket-analyzer:categories';
 
@@ -21,9 +21,9 @@ function getRedisClient(): Redis | null {
 }
 
 // In-memory cache fallback for local development
-let cachedCategories: CategoryConfig | null = null;
+let cachedCategories: IssueConfig | null = null;
 
-async function readCategories(): Promise<CategoryConfig> {
+async function readCategories(): Promise<IssueConfig> {
   const redis = getRedisClient();
   
   // Try Redis first
@@ -33,7 +33,7 @@ async function readCategories(): Promise<CategoryConfig> {
       await redis.quit();
       
       if (data) {
-        const parsed = JSON.parse(data) as CategoryConfig;
+        const parsed = JSON.parse(data) as IssueConfig;
         cachedCategories = parsed;
         return parsed;
       }
@@ -49,12 +49,12 @@ async function readCategories(): Promise<CategoryConfig> {
   
   // Return default config
   return {
-    categories: DEFAULT_CATEGORIES,
+    issues: DEFAULT_ISSUES,
     lastUpdated: new Date().toISOString()
   };
 }
 
-async function writeCategories(config: CategoryConfig): Promise<void> {
+async function writeCategories(config: IssueConfig): Promise<void> {
   // Always update in-memory cache
   cachedCategories = config;
   
@@ -80,7 +80,7 @@ export async function GET() {
     console.error('Error reading categories:', error);
     // Return defaults on error
     return NextResponse.json({
-      categories: DEFAULT_CATEGORIES,
+      issues: DEFAULT_ISSUES,
       lastUpdated: new Date().toISOString()
     });
   }
@@ -89,8 +89,8 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const config: CategoryConfig = {
-      categories: body.categories,
+    const config: IssueConfig = {
+      issues: body.issues || body.categories, // Support both for compatibility
       lastUpdated: new Date().toISOString()
     };
     await writeCategories(config);

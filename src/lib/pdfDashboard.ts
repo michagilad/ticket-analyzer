@@ -412,7 +412,7 @@ export async function generatePDFDashboard(
   pdf.setFont('helvetica', 'bold');
   pdf.text('ISSUE TYPE BREAKDOWN', issueTypeX, chartRowY);
 
-  const issueTypeData = Object.entries(result.issueTypeBreakdown)
+  const categoryData = Object.entries(result.categoryBreakdown)
     .filter(([, count]) => count > 0)
     .sort((a, b) => b[1] - a[1])
     .map(([type, count], i) => ({
@@ -424,7 +424,7 @@ export async function generatePDFDashboard(
   const pieX = issueTypeX + chartSectionWidth / 2;
   const pieY = chartRowY + 35;
   
-  drawPieChart(pdf, pieX, pieY, 22, issueTypeData, true, issueTypeX, chartRowY + 60);
+  drawPieChart(pdf, pieX, pieY, 22, categoryData, true, issueTypeX, chartRowY + 60);
 
   // ----- TOP 10 CATEGORIES Bar Chart -----
   const topCatX = margin + 2 * chartSectionWidth + 20;
@@ -433,16 +433,16 @@ export async function generatePDFDashboard(
   pdf.setFont('helvetica', 'bold');
   pdf.text('TOP 10 CATEGORIES', topCatX, chartRowY);
 
-  const topCategories = [...result.categoryResults]
+  const topIssues = [...result.issueResults]
     .sort((a, b) => b.count - a.count)
     .slice(0, 10)
     .map((cat, i) => ({
-      label: cat.category,
+      label: cat.issue,
       value: cat.count,
       color: PIE_COLORS[i % PIE_COLORS.length]
     }));
 
-  drawHorizontalBarChart(pdf, topCatX, chartRowY + 6, chartSectionWidth, topCategories);
+  drawHorizontalBarChart(pdf, topCatX, chartRowY + 6, chartSectionWidth, topIssues);
 
   // ========== PAGE 2: Detailed Category Table ==========
   pdf.addPage();
@@ -489,7 +489,7 @@ export async function generatePDFDashboard(
   yPos += 8;
 
   // Table rows
-  const sortedCategories = [...result.categoryResults]
+  const sortedIssues = [...result.issueResults]
     .filter(c => c.count > 0)
     .sort((a, b) => b.count - a.count);
   
@@ -497,7 +497,7 @@ export async function generatePDFDashboard(
   const maxRowsPerPage = 28;
   let rowCount = 0;
 
-  for (const cat of sortedCategories) {
+  for (const cat of sortedIssues) {
     if (rowCount >= maxRowsPerPage) {
       pdf.addPage();
       
@@ -540,7 +540,7 @@ export async function generatePDFDashboard(
     
     // Category name (truncate if needed)
     const maxCatLen = showComparison ? 35 : 42;
-    const displayName = cat.category.length > maxCatLen ? cat.category.substring(0, maxCatLen - 3) + '...' : cat.category;
+    const displayName = cat.issue.length > maxCatLen ? cat.issue.substring(0, maxCatLen - 3) + '...' : cat.issue;
     pdf.text(displayName, colX, yPos + 4);
     colX += colWidths[0];
     
@@ -564,12 +564,12 @@ export async function generatePDFDashboard(
     
     // Issue Type
     pdf.setTextColor(COLORS.text);
-    pdf.text(cat.metadata.issueType || '-', colX, yPos + 4);
+    pdf.text(cat.metadata.category || '-', colX, yPos + 4);
     
     // Comparison columns
     if (showComparison && result.comparison) {
       colX += colWidths[4];
-      const comparison = result.comparison.categoryComparisons.find(c => c.category === cat.category);
+      const comparison = result.comparison.issueComparisons.find(c => c.issue === cat.issue);
       
       // Past value
       pdf.text(comparison?.lastWeek.toString() || '0', colX, yPos + 4);

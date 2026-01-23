@@ -2,73 +2,73 @@ import {
   Ticket, 
   CategorizedTicket, 
   ExperienceMapping,
-  ALL_CATEGORIES,
-  CATEGORY_METADATA,
-  CategoryMetadata
+  ALL_ISSUES,
+  ISSUE_METADATA,
+  IssueMetadata
 } from './types';
-import { StoredCategory } from './categoryStorage';
+import { StoredIssue } from './categoryStorage';
 
-// Runtime category metadata that can be updated from API
-let runtimeCategoryMetadata: Record<string, CategoryMetadata> = { ...CATEGORY_METADATA };
-let runtimeAllCategories: string[] = [...ALL_CATEGORIES];
+// Runtime issue metadata that can be updated from API
+let runtimeIssueMetadata: Record<string, IssueMetadata> = { ...ISSUE_METADATA };
+let runtimeAllIssues: string[] = [...ALL_ISSUES];
 
 /**
- * Update the runtime categories from stored categories (from API/Redis)
+ * Update the runtime issues from stored issues (from API/Redis)
  */
-export function updateRuntimeCategories(storedCategories: StoredCategory[]): void {
+export function updateRuntimeIssues(storedIssues: StoredIssue[]): void {
   // Reset to defaults first
-  runtimeCategoryMetadata = { ...CATEGORY_METADATA };
-  runtimeAllCategories = [...ALL_CATEGORIES];
+  runtimeIssueMetadata = { ...ISSUE_METADATA };
+  runtimeAllIssues = [...ALL_ISSUES];
   
-  // Update with stored categories
-  for (const cat of storedCategories) {
-    runtimeCategoryMetadata[cat.name] = {
-      devFactory: cat.devFactory,
-      issueType: cat.issueType
+  // Update with stored issues
+  for (const issue of storedIssues) {
+    runtimeIssueMetadata[issue.name] = {
+      devFactory: issue.devFactory,
+      category: issue.category
     };
     
-    // Add new categories that aren't in defaults
-    if (!runtimeAllCategories.includes(cat.name)) {
-      runtimeAllCategories.push(cat.name);
+    // Add new issues that aren't in defaults
+    if (!runtimeAllIssues.includes(issue.name)) {
+      runtimeAllIssues.push(issue.name);
     }
   }
 }
 
 /**
- * GOLDEN RULE: If ticket name exactly matches a category name (case-insensitive), 
- * use that category immediately.
+ * GOLDEN RULE: If ticket name exactly matches an issue name (case-insensitive), 
+ * use that issue immediately.
  */
 function checkExactMatch(ticketName: string): string | null {
   const normalizedName = ticketName.trim().toLowerCase();
   
-  // Check runtime categories first (includes custom categories)
-  for (const category of runtimeAllCategories) {
-    if (category.toLowerCase() === normalizedName) {
-      return category;
+  // Check runtime issues first (includes custom issues)
+  for (const issue of runtimeAllIssues) {
+    if (issue.toLowerCase() === normalizedName) {
+      return issue;
     }
   }
   return null;
 }
 
 /**
- * Check for multi-category tickets (semicolon-separated)
+ * Check for multi-issue tickets (semicolon-separated)
  */
-function parseMultipleCategories(ticketName: string): string[] {
+function parseMultipleIssues(ticketName: string): string[] {
   if (!ticketName.includes(';')) {
     return [];
   }
   
   const parts = ticketName.split(';').map(p => p.trim());
-  const validCategories: string[] = [];
+  const validIssues: string[] = [];
   
   for (const part of parts) {
     const exactMatch = checkExactMatch(part);
     if (exactMatch) {
-      validCategories.push(exactMatch);
+      validIssues.push(exactMatch);
     }
   }
   
-  return validCategories;
+  return validIssues;
 }
 
 /**
@@ -381,10 +381,10 @@ export function categorizeTicket(ticket: Ticket): string[] {
   const ticketDescription = ticket['Ticket description'] || '';
   const combinedText = `${ticketName} ${ticketDescription}`;
   
-  // Check for multi-category tickets first
-  const multiCategories = parseMultipleCategories(ticketName);
-  if (multiCategories.length > 0) {
-    return multiCategories;
+  // Check for multi-issue tickets first
+  const multiIssues = parseMultipleIssues(ticketName);
+  if (multiIssues.length > 0) {
+    return multiIssues;
   }
   
   // GOLDEN RULE: Check exact match
@@ -485,7 +485,7 @@ export function processTickets(
   const results: CategorizedTicket[] = [];
   
   for (const ticket of tickets) {
-    const categories = categorizeTicket(ticket);
+    const issues = categorizeTicket(ticket);
     
     // Extract Experience ID from the Backstage Experience page URL in HS Export
     // URL format: https://backstage.eko.com/experiences/45493255314
@@ -502,11 +502,11 @@ export function processTickets(
       mapping = mappingByExperienceId.get(experienceId);
     }
     
-    // For multi-category tickets, create one entry but store all categories
+    // For multi-issue tickets, create one entry but store all issues
     const categorizedTicket: CategorizedTicket = {
       ...ticket,
-      category: categories[0],
-      categories: categories.length > 1 ? categories : undefined,
+      issue: issues[0],
+      issues: issues.length > 1 ? issues : undefined,
       Reviewer: mapping?.Assignee,
       ProductType: mapping?.ProductType,
       TemplateName: mapping?.TemplateName,
@@ -520,17 +520,17 @@ export function processTickets(
 }
 
 /**
- * Get category metadata (uses runtime categories which include custom ones)
+ * Get issue metadata (uses runtime issues which include custom ones)
  */
-export function getCategoryMetadata(category: string): CategoryMetadata {
-  return runtimeCategoryMetadata[category] || { devFactory: '', issueType: '' };
+export function getIssueMetadata(issue: string): IssueMetadata {
+  return runtimeIssueMetadata[issue] || { devFactory: '', category: '' };
 }
 
 /**
- * Get all runtime categories (includes custom ones)
+ * Get all runtime issues (includes custom ones)
  */
-export function getAllCategories(): string[] {
-  return runtimeAllCategories;
+export function getAllIssues(): string[] {
+  return runtimeAllIssues;
 }
 
 /**
@@ -553,3 +553,9 @@ export function getUniqueExperiences(tickets: Ticket[]): Set<string> {
 export function getExperiencesWithTickets(tickets: Ticket[]): Set<string> {
   return getUniqueExperiences(tickets);
 }
+
+// Compatibility exports for gradual migration
+export const updateRuntimeCategories = updateRuntimeIssues;
+export const getCategoryMetadata = getIssueMetadata;
+export const getAllCategories = getAllIssues;
+

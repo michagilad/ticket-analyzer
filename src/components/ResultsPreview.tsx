@@ -28,14 +28,14 @@ export default function ResultsPreview({ result, analysisType, showComparison = 
   const hasComparison = showComparison && comparison;
   
   // Get top 10 categories for display
-  const topCategories = result.categoryResults
-    .filter(c => c.category !== 'Uncategorized')
+  const topCategories = result.issueResults
+    .filter(c => c.issue !== 'Uncategorized')
     .slice(0, 10);
 
   // Get comparison data for categories if available
   const getCategoryComparison = (category: string) => {
     if (!hasComparison) return null;
-    return comparison.categoryComparisons.find(c => c.category === category);
+    return comparison.issueComparisons.find(c => c.issue === category);
   };
 
   return (
@@ -206,22 +206,22 @@ export default function ResultsPreview({ result, analysisType, showComparison = 
         </div>
       )}
 
-      {/* Category Breakdown */}
+      {/* Issue Breakdown */}
       <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
         <h4 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
           <BarChart3 className="w-4 h-4 text-slate-400" />
-          Top Categories
+          Top Issues
           {hasComparison && <span className="text-xs text-slate-500 font-normal ml-2">(with comparison change)</span>}
         </h4>
         <div className="space-y-3">
           {topCategories.map((cat, index) => {
-            const catComparison = getCategoryComparison(cat.category);
+            const catComparison = getCategoryComparison(cat.issue);
             return (
-              <div key={cat.category} className="group">
+              <div key={cat.issue} className="group">
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-sm text-slate-300 truncate flex-1 mr-2">
                     <span className="text-slate-500 mr-2">{index + 1}.</span>
-                    {cat.category}
+                    {cat.issue}
                   </span>
                   <div className="flex items-center gap-2">
                     {hasComparison && catComparison && (
@@ -254,25 +254,25 @@ export default function ResultsPreview({ result, analysisType, showComparison = 
             );
           })}
         </div>
-        {result.categoryResults.length > 10 && (
+        {result.issueResults.length > 10 && (
           <p className="text-xs text-slate-500 mt-4 text-center">
-            + {result.categoryResults.filter(c => c.count > 0).length - 10} more categories in the Excel export
+            + {result.issueResults.filter(c => c.count > 0).length - 10} more issues in the Excel export
           </p>
         )}
       </div>
 
-      {/* Issue Type Breakdown (only for analyses that include it) */}
-      {config.includeIssueType && Object.keys(result.issueTypeBreakdown).length > 0 && (
+      {/* Category Breakdown (only for analyses that include it) */}
+      {config.includeCategory && Object.keys(result.categoryBreakdown).length > 0 && (
         <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
           <h4 className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-slate-400" />
-            Issue Types
+            Categories
           </h4>
           <div className="flex flex-wrap gap-2">
-            {Object.entries(result.issueTypeBreakdown)
+            {Object.entries(result.categoryBreakdown)
               .sort((a, b) => b[1] - a[1])
               .map(([type, count]) => {
-                const lastWeekCount = hasComparison ? (comparison.issueTypeBreakdownLastWeek[type] || 0) : 0;
+                const lastWeekCount = hasComparison ? (comparison.categoryBreakdownLastWeek[type] || 0) : 0;
                 const change = count - lastWeekCount;
                 return (
                   <div 

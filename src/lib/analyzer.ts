@@ -3,14 +3,14 @@ import {
   CategorizedTicket,
   ExperienceMapping,
   AnalysisResult,
-  CategoryResult,
-  CategoryComparison,
+  IssueResult,
+  IssueComparison,
   AnalysisType,
   ANALYSIS_CONFIGS,
-  CATEGORY_METADATA,
-  ALL_CATEGORIES
+  ISSUE_METADATA,
+  ALL_ISSUES
 } from './types';
-import { processTickets, getCategoryMetadata } from './categorizer';
+import { processTickets, getIssueMetadata } from './categorizer';
 
 export interface LastWeekData {
   totalTickets: number;
@@ -19,7 +19,7 @@ export interface LastWeekData {
   categoryCounts: Record<string, number>;
   devCount: number;
   factoryCount: number;
-  issueTypeBreakdown: Record<string, number>;
+  categoryBreakdown: Record<string, number>;
 }
 
 /**
@@ -48,24 +48,24 @@ export function generateLastWeekData(
   const categoryCounts: Record<string, number> = {};
   let devCount = 0;
   let factoryCount = 0;
-  const issueTypeBreakdown: Record<string, number> = {};
+  const categoryBreakdown: Record<string, number> = {};
   
   for (const ticket of categorizedTickets) {
-    const categories = ticket.categories || [ticket.category];
+    const categories = ticket.issues || [ticket.issue];
     
     for (const category of categories) {
       categoryCounts[category] = (categoryCounts[category] || 0) + 1;
       
-      const metadata = getCategoryMetadata(category);
+      const metadata = getIssueMetadata(category);
       if (metadata.devFactory === 'DEV') {
         devCount++;
       } else if (metadata.devFactory === 'FACTORY') {
         factoryCount++;
       }
       
-      if (metadata.issueType) {
-        issueTypeBreakdown[metadata.issueType] = 
-          (issueTypeBreakdown[metadata.issueType] || 0) + 1;
+      if (metadata.category) {
+        categoryBreakdown[metadata.category] = 
+          (categoryBreakdown[metadata.category] || 0) + 1;
       }
     }
   }
@@ -77,7 +77,7 @@ export function generateLastWeekData(
     categoryCounts,
     devCount,
     factoryCount,
-    issueTypeBreakdown
+    categoryBreakdown
   };
 }
 
@@ -95,7 +95,7 @@ export function runAnalysis(
   
   // For custom analysis, use the provided categories
   if (analysisType === 'custom' && customCategories && customCategories.length > 0) {
-    config.categories = customCategories;
+    config.issues = customCategories;
   }
   
   // Process and categorize all tickets
@@ -137,18 +137,18 @@ export function runAnalysis(
   const categoryMap = new Map<string, CategorizedTicket[]>();
   
   // Initialize all categories (including those with 0 tickets)
-  for (const cat of config.categories) {
+  for (const cat of config.issues) {
     categoryMap.set(cat, []);
   }
   categoryMap.set('Uncategorized', []);
   
   // Assign tickets to categories
   for (const ticket of categorizedTickets) {
-    const categories = ticket.categories || [ticket.category];
+    const categories = ticket.issues || [ticket.issue];
     
     for (const category of categories) {
       // Check if this category is in our selected categories
-      if (config.categories.includes(category) || category === 'Uncategorized') {
+      if (config.issues.includes(category) || category === 'Uncategorized') {
         const existing = categoryMap.get(category) || [];
         existing.push(ticket);
         categoryMap.set(category, existing);
@@ -162,26 +162,26 @@ export function runAnalysis(
   }
   
   // Build category results
-  const categoryResults: CategoryResult[] = [];
+  const issueResults: IssueResult[] = [];
   let categorizedCount = 0;
   let uncategorizedCount = 0;
   let devCount = 0;
   let factoryCount = 0;
-  const issueTypeBreakdown: Record<string, number> = {};
+  const categoryBreakdown: Record<string, number> = {};
   
   // Get categories to include based on analysis type
   const categoriesToInclude = analysisType === 'overall' 
-    ? [...ALL_CATEGORIES] 
-    : [...config.categories, 'Uncategorized'];
+    ? [...ALL_ISSUES] 
+    : [...config.issues, 'Uncategorized'];
   
   for (const category of categoriesToInclude) {
     const tickets = categoryMap.get(category) || [];
     const count = tickets.length;
     const percentage = totalTickets > 0 ? (count / totalTickets) * 100 : 0;
-    const metadata = getCategoryMetadata(category);
+    const metadata = getIssueMetadata(category);
     
-    categoryResults.push({
-      category,
+    issueResults.push({
+      issue: category,
       tickets,
       count,
       percentage,
@@ -201,15 +201,15 @@ export function runAnalysis(
       }
       
       // Count issue types
-      if (metadata.issueType) {
-        issueTypeBreakdown[metadata.issueType] = 
-          (issueTypeBreakdown[metadata.issueType] || 0) + count;
+      if (metadata.category) {
+        categoryBreakdown[metadata.category] = 
+          (categoryBreakdown[metadata.category] || 0) + count;
       }
     }
   }
   
   // Sort by count descending
-  categoryResults.sort((a, b) => b.count - a.count);
+  issueResults.sort((a, b) => b.count - a.count);
   
   const successRate = totalTickets > 0 
     ? ((totalTickets - uncategorizedCount) / totalTickets) * 100 
@@ -219,22 +219,27 @@ export function runAnalysis(
   let comparison: AnalysisResult['comparison'] = undefined;
   
   if (lastWeekData && lastWeekData.totalTickets > 0) {
-    // Build category comparisons
-    const categoryComparisons: CategoryComparison[] = [];
-    for (const result of categoryResults) {
-      const lastWeekCount = lastWeekData.categoryCounts[result.category] || 0;
+    // Build category comparisons based on rates (percentage of total tickets)
+    const issueComparisons: IssueComparison[] = [];
+    for (const result of issueResults) {
+      const lastWeekCount = lastWeekData.categoryCounts[result.issue] || 0;
       const change = result.count - lastWeekCount;
-      const changePercent = lastWeekCount > 0 
-        ? ((change / lastWeekCount) * 100) 
-        : (result.count > 0 ? 100 : 0);
       
-      categoryComparisons.push({
-        category: result.category,
+      // Calculate rates (percentage of total tickets)
+      const thisWeekRate = totalTickets > 0 ? (result.count / totalTickets) * 100 : 0;
+      const lastWeekRate = lastWeekData.totalTickets > 0 ? (lastWeekCount / lastWeekData.totalTickets) * 100 : 0;
+      
+      // Calculate percentage POINT change (not percentage change of the rate)
+      // This is the difference in rates: e.g., 31.09% - 24.81% = +6.28 percentage points
+      const changePercent = thisWeekRate - lastWeekRate;
+      
+      issueComparisons.push({
+        issue: result.issue,
         thisWeek: result.count,
         lastWeek: lastWeekCount,
         change,
         changePercent: Math.round(changePercent * 10) / 10,
-        trend: change > 0 ? 'up' : change < 0 ? 'down' : 'same'
+        trend: changePercent > 0 ? 'up' : changePercent < 0 ? 'down' : 'same'
       });
     }
     
@@ -249,10 +254,10 @@ export function runAnalysis(
       lastWeekProductsReviewed: lastWeekData.totalProductsReviewed,
       ticketChange,
       ticketChangePercent: Math.round(ticketChangePercent * 10) / 10,
-      categoryComparisons,
+      issueComparisons,
       devCountLastWeek: lastWeekData.devCount,
       factoryCountLastWeek: lastWeekData.factoryCount,
-      issueTypeBreakdownLastWeek: lastWeekData.issueTypeBreakdown
+      categoryBreakdownLastWeek: lastWeekData.categoryBreakdown
     };
   }
 
@@ -265,10 +270,10 @@ export function runAnalysis(
     categorizedCount,
     uncategorizedCount,
     successRate: Math.round(successRate * 100) / 100,
-    categoryResults,
+    issueResults,
     devCount,
     factoryCount,
-    issueTypeBreakdown,
+    categoryBreakdown,
     comparison
   };
 }
@@ -299,7 +304,7 @@ export function getTopProductTypes(
     const existing = productTypeCounts.get(productType) || { count: 0, issues: new Map() };
     existing.count++;
     
-    const category = ticket.category;
+    const category = ticket.issue;
     existing.issues.set(category, (existing.issues.get(category) || 0) + 1);
     
     productTypeCounts.set(productType, existing);
@@ -379,7 +384,7 @@ export function getTopProductTypesWithCategoryBreakdown(
   for (const ticket of categorizedTickets) {
     const rawProductType = ticket.ProductType || 'Unknown';
     const productType = consolidateProductTypes(rawProductType);
-    const categories = ticket.categories || [ticket.category];
+    const categories = ticket.issues || [ticket.issue];
     
     if (!productTypeData.has(productType)) {
       productTypeData.set(productType, new Map());

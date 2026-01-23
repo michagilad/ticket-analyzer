@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { BarChart3, Ruler, Factory, Tag, Check, Settings, ChevronDown, ChevronUp } from 'lucide-react';
-import { AnalysisType, ANALYSIS_CONFIGS, ALL_CATEGORIES } from '@/lib/types';
+import { AnalysisType, ANALYSIS_CONFIGS, ALL_ISSUES } from '@/lib/types';
 
 interface AnalysisTypeSelectorProps {
   selectedTypes: AnalysisType[];
@@ -89,8 +89,8 @@ export default function AnalysisTypeSelector({
   };
 
   const handleSelectAll = () => {
-    const allCategories = ALL_CATEGORIES.filter(c => c !== 'Uncategorized');
-    onCustomCategoriesChange([...allCategories]);
+    const allIssues = ALL_ISSUES.filter(c => c !== 'Uncategorized');
+    onCustomCategoriesChange([...allIssues]);
   };
 
   const handleClearAll = () => {
@@ -147,7 +147,7 @@ export default function AnalysisTypeSelector({
                 {config.description}
               </p>
               <p className="text-xs text-slate-500 mt-2">
-                {config.categories.length} categories
+                {config.issues.length} issues
               </p>
             </button>
           );
@@ -185,11 +185,11 @@ export default function AnalysisTypeSelector({
                 Custom Analysis
               </h4>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Select specific categories to include in your analysis
+                Select specific issues to include in your analysis
               </p>
               {isCustomSelected && (
                 <p className="text-xs text-pink-400 mt-1">
-                  {customCategories.length} categories selected
+                  {customCategories.length} issues selected
                 </p>
               )}
             </div>
@@ -209,7 +209,7 @@ export default function AnalysisTypeSelector({
                 ) : (
                   <ChevronDown className="w-4 h-4" />
                 )}
-                {showCustomCategories ? 'Hide Categories' : 'Show Categories'}
+                {showCustomCategories ? 'Hide Issues' : 'Show Issues'}
               </button>
               <div className="flex gap-2">
                 <button
@@ -229,12 +229,12 @@ export default function AnalysisTypeSelector({
 
             {showCustomCategories && (
               <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-2">
-                {ALL_CATEGORIES.filter(c => c !== 'Uncategorized').map((category) => {
-                  const isSelected = customCategories.includes(category);
+                {ALL_ISSUES.filter(c => c !== 'Uncategorized').map((issue) => {
+                  const isSelected = customCategories.includes(issue);
                   return (
                     <button
-                      key={category}
-                      onClick={() => handleCategoryToggle(category)}
+                      key={issue}
+                      onClick={() => handleCategoryToggle(issue)}
                       className={`
                         flex items-center gap-2 p-2 rounded-lg text-left text-xs transition-all
                         ${isSelected 
@@ -249,7 +249,7 @@ export default function AnalysisTypeSelector({
                       `}>
                         {isSelected && <Check className="w-3 h-3 text-white" />}
                       </div>
-                      <span className="truncate">{category}</span>
+                      <span className="truncate">{issue}</span>
                     </button>
                   );
                 })}
@@ -258,7 +258,7 @@ export default function AnalysisTypeSelector({
 
             {customCategories.length === 0 && (
               <p className="text-xs text-amber-400 mt-2">
-                ⚠️ Please select at least one category for custom analysis
+                ⚠️ Please select at least one issue for custom analysis
               </p>
             )}
           </div>

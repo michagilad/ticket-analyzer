@@ -11,8 +11,10 @@ import {
   BarChart3,
   Settings2,
   GitCompare,
-  FileText
+  FileText,
+  Flag
 } from 'lucide-react';
+import Link from 'next/link';
 import FileUpload, { FileType } from '@/components/FileUpload';
 import AnalysisTypeSelector from '@/components/AnalysisTypeSelector';
 import ResultsPreview from '@/components/ResultsPreview';
@@ -30,6 +32,8 @@ import { processTickets, updateRuntimeCategories } from '@/lib/categorizer';
 import { exportToExcel, generateFilename } from '@/lib/excelExporter';
 import { generatePDFDashboard, downloadPDFDashboard } from '@/lib/pdfDashboard';
 import { CategoryConfig } from '@/lib/categoryStorage';
+import { findExperiencesToFlag, getTotalFlaggedCount } from '@/lib/flagger';
+import { FlaggedExperience } from '@/lib/types';
 
 type TabType = 'analyzer' | 'categories';
 
@@ -38,6 +42,11 @@ interface AnalysisResultWithType {
   result: AnalysisResult;
   categorizedTickets: CategorizedTicket[];
   showComparison: boolean;
+}
+
+interface FlaggedData {
+  byCategory: { category: string; experiences: FlaggedExperience[] }[];
+  totalCount: number;
 }
 
 export default function Home() {
@@ -52,6 +61,24 @@ export default function Home() {
   const [results, setResults] = useState<AnalysisResultWithType[]>([]);
   const [activeResultIndex, setActiveResultIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [flaggedData, setFlaggedData] = useState<FlaggedData | null>(null);
+  const [storedIssues, setStoredIssues] = useState<any[] | null>(null);
+
+  // Fetch stored issues on mount for Excel export comments
+  React.useEffect(() => {
+    const fetchStoredIssues = async () => {
+      try {
+        const response = await fetch('/api/categories');
+        if (response.ok) {
+          const data = await response.json();
+          setStoredIssues(data.issues || data.categories || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch stored issues:', err);
+      }
+    };
+    fetchStoredIssues();
+  }, []);
 
   const handleFileUpload = useCallback((file: File, type: FileType) => {
     switch (type) {
@@ -132,8 +159,8 @@ export default function Home() {
       try {
         const categoriesResponse = await fetch('/api/categories');
         if (categoriesResponse.ok) {
-          const categoryConfig: CategoryConfig = await categoriesResponse.json();
-          updateRuntimeCategories(categoryConfig.categories);
+          const categoryConfig: any = await categoriesResponse.json();
+          updateRuntimeCategories(categoryConfig.issues || categoryConfig.categories || []);
         }
       } catch (catErr) {
         console.warn('Failed to fetch categories, using defaults:', catErr);
@@ -210,7 +237,13 @@ export default function Home() {
   };
 
   const handleDownload = async (resultWithType: AnalysisResultWithType) => {
-    const blob = await exportToExcel(resultWithType.result, resultWithType.type, resultWithType.categorizedTickets, resultWithType.showComparison);
+    const blob = await exportToExcel(
+      resultWithType.result, 
+      resultWithType.type, 
+      resultWithType.categorizedTickets, 
+      resultWithType.showComparison,
+      storedIssues || undefined
+    );
     const filename = generateFilename(resultWithType.type, resultWithType.showComparison);
     
     // Create download link
@@ -301,7 +334,7 @@ export default function Home() {
               `}
             >
               <Settings2 className="w-4 h-4" />
-              Manage Categories
+              Manage Issues
             </button>
           </div>
         </div>
@@ -398,6 +431,82 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Link
+                      href="/flagged"
+                      onClick={async () => {
+                        // Compute flagged experiences when clicking the button
+                        const tickets = results[activeResultIndex].categorizedTickets;
+                        console.log('Total tickets:', tickets.length);
+                        
+                        // Debug: Check a sample ticket for description
+                        if (tickets.length > 0) {
+                          console.log('Sample ticket keys:', Object.keys(tickets[0]));
+                          console.log('Sample ticket description:', tickets[0]['Ticket description']);
+                        }
+                        
+                        // Debug: Check for flaggable issues in tickets
+                        const flaggableTickets = tickets.filter(t => {
+                          const issues = t.issues || [t.issue];
+                          return issues.some(issue => ['Bad label - set up', 'Blurry/out of focus video', 'Damage/dirty plate', 'Damaged product', 'Date code/LOT number shown', 'Off centered / Off axis', 'Reflections on product'].includes(issue));
+                        });
+                        console.log('Tickets with flaggable issues:', flaggableTickets.length);
+                        
+                        // Debug: Check statuses
+                        const notDoneResolved = flaggableTickets.filter(t => {
+                          const status = t['Ticket status']?.toLowerCase() || '';
+                          return status !== 'done' && status !== 'resolved';
+                        });
+                        console.log('Flaggable tickets not Done/Resolved:', notDoneResolved.length);
+                        
+                        // Debug: Check instance IDs
+                        const withInstanceId = notDoneResolved.filter(t => t['Instance ID'] && t['Instance ID'].trim() !== '');
+                        console.log('With Instance ID:', withInstanceId.length);
+                        console.log('Sample tickets:', withInstanceId.slice(0, 3).map(t => ({
+                          issue: t.issue,
+                          status: t['Ticket status'],
+                          instanceId: t['Instance ID'],
+                          description: t['Ticket description']
+                        })));
+                        
+                        const flaggedMap = findExperiencesToFlag(tickets);
+                        const byIssue: { category: string; experiences: FlaggedExperience[] }[] = [];
+                        flaggedMap.forEach((experiences, issue) => {
+                          if (experiences.length > 0) {
+                            byIssue.push({ category: issue, experiences });
+                          }
+                        });
+                        console.log('Flagged experiences:', byIssue);
+                        console.log('Total flagged:', byIssue.reduce((sum, g) => sum + g.experiences.length, 0));
+                        
+                        // Save to Redis (with sessionStorage fallback)
+                        try {
+                          const response = await fetch('/api/flagged', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ data: byIssue })
+                          });
+                          
+                          if (response.ok) {
+                            console.log('✓ Saved to Redis successfully');
+                          } else {
+                            const errorData = await response.json();
+                            console.warn('Redis not available, using sessionStorage fallback:', errorData.error);
+                            // Fallback to sessionStorage
+                            sessionStorage.setItem('flaggedExperiences', JSON.stringify(byIssue));
+                            console.log('✓ Saved to sessionStorage');
+                          }
+                        } catch (error) {
+                          console.warn('Redis not available, using sessionStorage fallback');
+                          // Fallback to sessionStorage
+                          sessionStorage.setItem('flaggedExperiences', JSON.stringify(byIssue));
+                          console.log('✓ Saved to sessionStorage');
+                        }
+                      }}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 font-medium hover:bg-amber-500/20 transition-colors"
+                    >
+                      <Flag className="w-4 h-4" />
+                      Flag Experiences to QC (BETA)
+                    </Link>
                     <button
                       onClick={() => handleDownloadPDF(results[activeResultIndex] || results[0])}
                       className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-500/10 border border-violet-500/30 text-violet-400 font-medium hover:bg-violet-500/20 transition-colors"
@@ -489,7 +598,12 @@ export default function Home() {
           </div>
         ) : (
           <section className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-800/50 p-6">
-            <CategoriesManager />
+            <CategoriesManager 
+              onCategoriesChange={(categories) => {
+                // Update stored issues when categories change
+                setStoredIssues(categories);
+              }}
+            />
           </section>
         )}
 

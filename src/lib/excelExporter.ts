@@ -7,6 +7,7 @@ import {
   CategorizedTicket
 } from './types';
 import { getTopProductTypes, getTopProductTypeForCategory, getTopProductTypesWithCategoryBreakdown } from './analyzer';
+import { ISSUE_COMMENTS } from './issueComments';
 
 /**
  * Create a visual bar chart using block characters
@@ -71,7 +72,8 @@ async function createDashboardSheet(
   result: AnalysisResult,
   analysisType: AnalysisType,
   allTickets: CategorizedTicket[],
-  includeComparison: boolean = false
+  includeComparison: boolean = false,
+  issueComments: Record<string, string> = {}
 ): Promise<void> {
   const config = ANALYSIS_CONFIGS[analysisType];
   const ws = workbook.addWorksheet('Dashboard');
@@ -124,58 +126,97 @@ async function createDashboardSheet(
         metric: 'Total Products Reviewed',
         past: comparison.lastWeekProductsReviewed,
         current: result.totalProductsReviewed,
+        showPercentOfTotal: false,
       },
       {
         metric: 'Approved Experiences (No Issues)',
         past: comparison.lastWeekApprovedExperiences,
+        pastTotal: comparison.lastWeekProductsReviewed,
         current: result.approvedExperiences,
+        currentTotal: result.totalProductsReviewed,
         invertColors: true, // More approved is good
+        showPercentOfTotal: true,
       },
       {
         metric: 'Products with Tickets',
         past: comparison.lastWeekProductsReviewed - comparison.lastWeekApprovedExperiences,
+        pastTotal: comparison.lastWeekProductsReviewed,
         current: result.productsWithTickets,
+        currentTotal: result.totalProductsReviewed,
+        showPercentOfTotal: true,
       },
       {
         metric: 'Total Tickets',
         past: comparison.lastWeekTotalTickets,
         current: result.totalTickets,
+        showPercentOfTotal: false,
       },
       {
         metric: 'Tickets per Experience',
         past: parseFloat((comparison.lastWeekTotalTickets / Math.max(comparison.lastWeekProductsReviewed - comparison.lastWeekApprovedExperiences, 1)).toFixed(2)),
         current: result.ticketsPerExperience,
         isDecimal: true,
+        showPercentOfTotal: false,
       },
       {
-        metric: 'Unique Categories',
-        past: comparison.categoryComparisons.filter(c => c.lastWeek > 0).length,
-        current: result.categoryResults.filter(c => c.count > 0 && c.category !== 'Uncategorized').length,
+        metric: 'Unique Issues',
+        past: comparison.issueComparisons.filter(c => c.lastWeek > 0).length,
+        current: result.issueResults.filter(c => c.count > 0 && c.issue !== 'Uncategorized').length,
+        showPercentOfTotal: false,
       },
       {
         metric: 'Uncategorized',
-        past: comparison.categoryComparisons.find(c => c.category === 'Uncategorized')?.lastWeek || 0,
+        past: comparison.issueComparisons.find(c => c.issue === 'Uncategorized')?.lastWeek || 0,
         current: result.uncategorizedCount,
+        showPercentOfTotal: false,
       },
     ];
     
     for (const data of metricsData) {
       const change = data.current - data.past;
-      const changePercent = data.past > 0 
-        ? ((change / data.past) * 100).toFixed(1) 
-        : (data.current > 0 ? '100.0' : '0.0');
+      
+      // Calculate percentage change
+      let changePercent: string;
+      if (data.showPercentOfTotal && data.pastTotal && data.currentTotal) {
+        // For metrics with "% of Total", show percentage POINT change
+        const pastPercent = data.pastTotal > 0 ? (data.past / data.pastTotal) * 100 : 0;
+        const currentPercent = data.currentTotal > 0 ? (data.current / data.currentTotal) * 100 : 0;
+        const percentPointChange = currentPercent - pastPercent;
+        changePercent = `${percentPointChange > 0 ? '+' : ''}${percentPointChange.toFixed(1)}`;
+      } else {
+        // For other metrics, show regular percentage change
+        changePercent = data.past > 0 
+          ? ((change / data.past) * 100).toFixed(1) 
+          : (data.current > 0 ? '100.0' : '0.0');
+        changePercent = `${parseFloat(changePercent) > 0 ? '+' : ''}${changePercent}`;
+      }
+      
       const trend = change < 0 ? '↓' : change > 0 ? '↑' : '→';
       
       ws.getCell(currentRow, 1).value = data.metric;
-      ws.getCell(currentRow, 2).value = data.past;
-      ws.getCell(currentRow, 3).value = data.current;
+      
+      // Format Past column with percentage if applicable
+      if (data.showPercentOfTotal && data.pastTotal) {
+        const pastPercent = data.pastTotal > 0 ? ((data.past / data.pastTotal) * 100).toFixed(1) : '0.0';
+        ws.getCell(currentRow, 2).value = `${data.past} (${pastPercent}%)`;
+      } else {
+        ws.getCell(currentRow, 2).value = data.past;
+      }
+      
+      // Format Current column with percentage if applicable
+      if (data.showPercentOfTotal && data.currentTotal) {
+        const currentPercent = data.currentTotal > 0 ? ((data.current / data.currentTotal) * 100).toFixed(1) : '0.0';
+        ws.getCell(currentRow, 3).value = `${data.current} (${currentPercent}%)`;
+      } else {
+        ws.getCell(currentRow, 3).value = data.current;
+      }
       
       const changeCell = ws.getCell(currentRow, 4);
       changeCell.value = change;
       applyChangeColor(changeCell, change, data.invertColors);
       
       const percentCell = ws.getCell(currentRow, 5);
-      percentCell.value = `${parseFloat(changePercent) > 0 ? '+' : ''}${changePercent}%`;
+      percentCell.value = `${changePercent}%`;
       applyChangeColor(percentCell, change, data.invertColors);
       
       ws.getCell(currentRow, 6).value = trend;
@@ -196,11 +237,11 @@ async function createDashboardSheet(
     const simpleMetrics = [
       ['Total Products Reviewed', result.totalProductsReviewed],
       ['Approved Experiences (No Issues)', `${result.approvedExperiences} (${result.totalProductsReviewed > 0 ? ((result.approvedExperiences / result.totalProductsReviewed) * 100).toFixed(1) : 0}%)`],
-      ['Products with Tickets', result.productsWithTickets],
+      ['Products with Tickets', `${result.productsWithTickets} (${result.totalProductsReviewed > 0 ? ((result.productsWithTickets / result.totalProductsReviewed) * 100).toFixed(1) : 0}%)`],
       ['Tickets per Experience', result.ticketsPerExperience],
       ['Total Tickets', result.totalTickets],
       ['Categorized Tickets', result.categorizedCount],
-      ['Unique Categories', result.categoryResults.filter(c => c.count > 0 && c.category !== 'Uncategorized').length],
+      ['Unique Issues', result.issueResults.filter(c => c.count > 0 && c.issue !== 'Uncategorized').length],
       ['Uncategorized', `${result.uncategorizedCount} (${result.totalTickets > 0 ? ((result.uncategorizedCount / result.totalTickets) * 100).toFixed(1) : 0}%)`],
     ];
     
@@ -248,14 +289,14 @@ async function createDashboardSheet(
     }
   }
   
-  // CATEGORY BREAKDOWN
+  // ISSUE BREAKDOWN
   const categoryColCount = hasComparison 
-    ? (config.includeDevFactory && config.includeIssueType ? 9 : 7)
-    : (config.includeDevFactory && config.includeIssueType ? 7 : 5);
+    ? (config.includeDevFactory && config.includeCategory ? 9 : 7)
+    : (config.includeDevFactory && config.includeCategory ? 7 : 5);
   
   ws.mergeCells(currentRow, 1, currentRow, categoryColCount);
   const catSectionCell = ws.getCell(currentRow, 1);
-  catSectionCell.value = hasComparison ? 'CATEGORY BREAKDOWN - COMPARISON' : 'CATEGORY BREAKDOWN';
+  catSectionCell.value = hasComparison ? 'ISSUE BREAKDOWN - COMPARISON' : 'ISSUE BREAKDOWN';
   catSectionCell.fill = STYLES.sectionHeader.fill;
   catSectionCell.font = STYLES.sectionHeader.font;
   currentRow++;
@@ -263,13 +304,13 @@ async function createDashboardSheet(
   // Category headers
   let catHeaders: string[];
   if (hasComparison) {
-    catHeaders = config.includeDevFactory && config.includeIssueType
-      ? ['Category', 'Past', 'Current', 'Change', '% Change', 'Trend', 'Dev/Factory', 'Issue Type', 'Top Product Type']
-      : ['Category', 'Past', 'Current', 'Change', '% Change', 'Trend', 'Top Product Type'];
+    catHeaders = config.includeDevFactory && config.includeCategory
+      ? ['Issue', 'Past', 'Current', 'Change', '% Change', 'Trend', 'Dev/Factory', 'Category', 'Top Product Type']
+      : ['Issue', 'Past', 'Current', 'Change', '% Change', 'Trend', 'Top Product Type'];
   } else {
-    catHeaders = config.includeDevFactory && config.includeIssueType
-      ? ['Category', 'Count', 'Percentage', 'Visual', 'Dev/Factory', 'Issue Type', 'Top Product Type']
-      : ['Category', 'Count', 'Percentage', 'Visual', 'Top Product Type'];
+    catHeaders = config.includeDevFactory && config.includeCategory
+      ? ['Issue', 'Count', 'Percentage', 'Visual', 'Dev/Factory', 'Category', 'Top Product Type']
+      : ['Issue', 'Count', 'Percentage', 'Visual', 'Top Product Type'];
   }
   
   catHeaders.forEach((header, idx) => {
@@ -283,17 +324,24 @@ async function createDashboardSheet(
   currentRow++;
   
   // Category data
-  for (const cat of result.categoryResults) {
+  for (const cat of result.issueResults) {
     const topProduct = getTopProductTypeForCategory(cat.tickets);
     
     if (hasComparison) {
-      const catComp = comparison!.categoryComparisons.find(c => c.category === cat.category);
+      const catComp = comparison!.issueComparisons.find(c => c.issue === cat.issue);
       const lastWeek = catComp?.lastWeek || 0;
-      const change = catComp?.change || cat.count;
-      const changePercent = catComp?.changePercent || (cat.count > 0 ? 100 : 0);
+      const change = catComp?.change || 0;
+      const changePercent = catComp?.changePercent || 0;
       const trend = change < 0 ? '↓' : change > 0 ? '↑' : '→';
       
-      ws.getCell(currentRow, 1).value = cat.category;
+      const issueCell = ws.getCell(currentRow, 1);
+      issueCell.value = cat.issue;
+      
+      // Add comment from issueComments if available
+      if (issueComments[cat.issue]) {
+        issueCell.note = issueComments[cat.issue];
+      }
+      
       ws.getCell(currentRow, 2).value = lastWeek;
       ws.getCell(currentRow, 3).value = cat.count;
       
@@ -307,22 +355,29 @@ async function createDashboardSheet(
       
       ws.getCell(currentRow, 6).value = trend;
       
-      if (config.includeDevFactory && config.includeIssueType) {
+      if (config.includeDevFactory && config.includeCategory) {
         ws.getCell(currentRow, 7).value = cat.metadata.devFactory || '';
-        ws.getCell(currentRow, 8).value = cat.metadata.issueType || '';
+        ws.getCell(currentRow, 8).value = cat.metadata.category || '';
         ws.getCell(currentRow, 9).value = topProduct;
       } else {
         ws.getCell(currentRow, 7).value = topProduct;
       }
     } else {
-      ws.getCell(currentRow, 1).value = cat.category;
+      const issueCell = ws.getCell(currentRow, 1);
+      issueCell.value = cat.issue;
+      
+      // Add comment from issueComments if available
+      if (issueComments[cat.issue]) {
+        issueCell.note = issueComments[cat.issue];
+      }
+      
       ws.getCell(currentRow, 2).value = cat.count;
       ws.getCell(currentRow, 3).value = `${cat.percentage.toFixed(1)}%`;
       ws.getCell(currentRow, 4).value = createVisualBar(cat.percentage);
       
-      if (config.includeDevFactory && config.includeIssueType) {
+      if (config.includeDevFactory && config.includeCategory) {
         ws.getCell(currentRow, 5).value = cat.metadata.devFactory || '';
-        ws.getCell(currentRow, 6).value = cat.metadata.issueType || '';
+        ws.getCell(currentRow, 6).value = cat.metadata.category || '';
         ws.getCell(currentRow, 7).value = topProduct;
       } else {
         ws.getCell(currentRow, 5).value = topProduct;
@@ -334,7 +389,7 @@ async function createDashboardSheet(
   
   // DEV VS FACTORY BREAKDOWN
   if (config.includeDevFactory) {
-    const devColCount = hasComparison ? 6 : 4;
+    const devColCount = hasComparison ? 7 : 4;
     ws.mergeCells(currentRow, 1, currentRow, devColCount);
     const devSectionCell = ws.getCell(currentRow, 1);
     devSectionCell.value = 'DEV VS FACTORY BREAKDOWN';
@@ -343,7 +398,7 @@ async function createDashboardSheet(
     currentRow++;
     
     const devHeaders = hasComparison 
-      ? ['Type', 'Past', 'Current', 'Change', 'Percentage', 'Visual']
+      ? ['Type', 'Past', 'Current', 'Change', 'Percentage', '% Change', 'Visual']
       : ['Type', 'Count', 'Percentage', 'Visual'];
     
     devHeaders.forEach((header, idx) => {
@@ -364,6 +419,19 @@ async function createDashboardSheet(
       const devChange = result.devCount - comparison!.devCountLastWeek;
       const factoryChange = result.factoryCount - comparison!.factoryCountLastWeek;
       
+      // Calculate rates (percentage of total tickets)
+      const lastWeekTotal = comparison!.devCountLastWeek + comparison!.factoryCountLastWeek;
+      const lastWeekDevRate = lastWeekTotal > 0 ? (comparison!.devCountLastWeek / lastWeekTotal) * 100 : 0;
+      const lastWeekFactoryRate = lastWeekTotal > 0 ? (comparison!.factoryCountLastWeek / lastWeekTotal) * 100 : 0;
+      
+      const currentTotal = result.devCount + result.factoryCount;
+      const currentDevRate = currentTotal > 0 ? (result.devCount / currentTotal) * 100 : 0;
+      const currentFactoryRate = currentTotal > 0 ? (result.factoryCount / currentTotal) * 100 : 0;
+      
+      // Calculate percentage point changes
+      const devRateChange = currentDevRate - lastWeekDevRate;
+      const factoryRateChange = currentFactoryRate - lastWeekFactoryRate;
+      
       // DEV row
       ws.getCell(currentRow, 1).value = 'DEV';
       ws.getCell(currentRow, 2).value = comparison!.devCountLastWeek;
@@ -371,8 +439,11 @@ async function createDashboardSheet(
       const devChangeCell = ws.getCell(currentRow, 4);
       devChangeCell.value = devChange > 0 ? `+${devChange}` : devChange;
       applyChangeColor(devChangeCell, devChange);
-      ws.getCell(currentRow, 5).value = `${devPercentage.toFixed(1)}%`;
-      ws.getCell(currentRow, 6).value = createVisualBar(devPercentage, 30);
+      ws.getCell(currentRow, 5).value = `${currentDevRate.toFixed(1)}%`;
+      const devRateChangeCell = ws.getCell(currentRow, 6);
+      devRateChangeCell.value = `${devRateChange > 0 ? '+' : ''}${devRateChange.toFixed(1)}%`;
+      applyChangeColor(devRateChangeCell, devRateChange);
+      ws.getCell(currentRow, 7).value = createVisualBar(currentDevRate, 30);
       currentRow++;
       
       // FACTORY row
@@ -382,8 +453,11 @@ async function createDashboardSheet(
       const factoryChangeCell = ws.getCell(currentRow, 4);
       factoryChangeCell.value = factoryChange > 0 ? `+${factoryChange}` : factoryChange;
       applyChangeColor(factoryChangeCell, factoryChange);
-      ws.getCell(currentRow, 5).value = `${factoryPercentage.toFixed(1)}%`;
-      ws.getCell(currentRow, 6).value = createVisualBar(factoryPercentage, 30);
+      ws.getCell(currentRow, 5).value = `${currentFactoryRate.toFixed(1)}%`;
+      const factoryRateChangeCell = ws.getCell(currentRow, 6);
+      factoryRateChangeCell.value = `${factoryRateChange > 0 ? '+' : ''}${factoryRateChange.toFixed(1)}%`;
+      applyChangeColor(factoryRateChangeCell, factoryRateChange);
+      ws.getCell(currentRow, 7).value = createVisualBar(currentFactoryRate, 30);
       currentRow++;
     } else {
       ws.getCell(currentRow, 1).value = 'DEV';
@@ -401,19 +475,19 @@ async function createDashboardSheet(
     currentRow++;
   }
   
-  // ISSUE TYPE BREAKDOWN
-  if (config.includeIssueType && Object.keys(result.issueTypeBreakdown).length > 0) {
-    const issueColCount = hasComparison ? 6 : 4;
+  // CATEGORY BREAKDOWN
+  if (config.includeCategory && Object.keys(result.categoryBreakdown).length > 0) {
+    const issueColCount = hasComparison ? 7 : 4;
     ws.mergeCells(currentRow, 1, currentRow, issueColCount);
     const issueSectionCell = ws.getCell(currentRow, 1);
-    issueSectionCell.value = 'ISSUE TYPE BREAKDOWN';
+    issueSectionCell.value = 'CATEGORY BREAKDOWN';
     issueSectionCell.fill = STYLES.sectionHeader.fill;
     issueSectionCell.font = STYLES.sectionHeader.font;
     currentRow++;
     
     const issueHeaders = hasComparison 
-      ? ['Issue Type', 'Past', 'Current', 'Change', 'Percentage', 'Visual']
-      : ['Issue Type', 'Count', 'Percentage', 'Visual'];
+      ? ['Category', 'Past', 'Current', 'Change', 'Percentage', '% Change', 'Visual']
+      : ['Category', 'Count', 'Percentage', 'Visual'];
     
     issueHeaders.forEach((header, idx) => {
       const cell = ws.getCell(currentRow, idx + 1);
@@ -425,25 +499,39 @@ async function createDashboardSheet(
     });
     currentRow++;
     
-    const issueTypes = Object.entries(result.issueTypeBreakdown).sort((a, b) => b[1] - a[1]);
-    
-    for (const [issueType, count] of issueTypes) {
+    const categories = Object.entries(result.categoryBreakdown).sort((a, b) => b[1] - a[1]);
+
+    for (const [category, count] of categories) {
       const percentage = result.totalTickets > 0 ? (count / result.totalTickets) * 100 : 0;
       
       if (hasComparison) {
-        const lastWeekCount = comparison!.issueTypeBreakdownLastWeek[issueType] || 0;
+        const lastWeekCount = comparison!.categoryBreakdownLastWeek[category] || 0;
         const change = count - lastWeekCount;
         
-        ws.getCell(currentRow, 1).value = issueType;
+        // Calculate rates (percentage of total tickets)
+        const lastWeekRate = comparison!.lastWeekTotalTickets > 0 
+          ? (lastWeekCount / comparison!.lastWeekTotalTickets) * 100 
+          : 0;
+        const currentRate = result.totalTickets > 0 
+          ? (count / result.totalTickets) * 100 
+          : 0;
+        
+        // Calculate percentage point change
+        const rateChange = currentRate - lastWeekRate;
+        
+        ws.getCell(currentRow, 1).value = category;
         ws.getCell(currentRow, 2).value = lastWeekCount;
         ws.getCell(currentRow, 3).value = count;
         const changeCell = ws.getCell(currentRow, 4);
         changeCell.value = change > 0 ? `+${change}` : change;
         applyChangeColor(changeCell, change);
-        ws.getCell(currentRow, 5).value = `${percentage.toFixed(1)}%`;
-        ws.getCell(currentRow, 6).value = createVisualBar(percentage, 30);
+        ws.getCell(currentRow, 5).value = `${currentRate.toFixed(1)}%`;
+        const rateChangeCell = ws.getCell(currentRow, 6);
+        rateChangeCell.value = `${rateChange > 0 ? '+' : ''}${rateChange.toFixed(1)}%`;
+        applyChangeColor(rateChangeCell, rateChange);
+        ws.getCell(currentRow, 7).value = createVisualBar(currentRate, 30);
       } else {
-        ws.getCell(currentRow, 1).value = issueType;
+        ws.getCell(currentRow, 1).value = category;
         ws.getCell(currentRow, 2).value = count;
         ws.getCell(currentRow, 3).value = `${percentage.toFixed(1)}%`;
         ws.getCell(currentRow, 4).value = createVisualBar(percentage, 30);
@@ -453,7 +541,7 @@ async function createDashboardSheet(
     currentRow++;
   }
   
-  // TOP 10 PRODUCT TYPES BY CATEGORY
+  // TOP 10 PRODUCT TYPES BY ISSUE
   // Always show this section - it will show product types from tickets that have ProductType
   const topProductTypes = getTopProductTypesWithCategoryBreakdown(allTickets, 10);
   if (topProductTypes.length > 0) {
@@ -461,12 +549,12 @@ async function createDashboardSheet(
     
     ws.mergeCells(currentRow, 1, currentRow, 5);
     const prodSectionCell = ws.getCell(currentRow, 1);
-    prodSectionCell.value = 'TOP 10 PRODUCT TYPES BY CATEGORY';
+    prodSectionCell.value = 'TOP 10 PRODUCT TYPES BY ISSUE';
     prodSectionCell.fill = STYLES.sectionHeader.fill;
     prodSectionCell.font = STYLES.sectionHeader.font;
     currentRow++;
     
-    const prodHeaders = ['Product Type', 'Total Tickets', '% of Total', 'Visual', 'Category Breakdown'];
+    const prodHeaders = ['Product Type', 'Total Tickets', '% of Total', 'Visual', 'Issue Breakdown'];
     prodHeaders.forEach((header, idx) => {
       const cell = ws.getCell(currentRow, idx + 1);
       cell.value = header;
@@ -513,6 +601,7 @@ function createCategorySheet(
     'Ticket ID',
     'Experience Name',
     'Experience ID',
+    'Instance ID',
     'Ticket Name',
     'Ticket Status',
     'Ticket Assignee',
@@ -529,6 +618,7 @@ function createCategorySheet(
     { width: 15 }, // Ticket ID
     { width: 30 }, // Experience Name
     { width: 15 }, // Experience ID
+    { width: 20 }, // Instance ID
     { width: 40 }, // Ticket Name
     { width: 12 }, // Ticket Status
     { width: 20 }, // Ticket Assignee
@@ -557,15 +647,16 @@ function createCategorySheet(
     ws.getCell(currentRow, 1).value = ticket['Ticket ID'] || '';
     ws.getCell(currentRow, 2).value = ticket['Experience name'] || '';
     ws.getCell(currentRow, 3).value = ticket['Experience ID'] || '';
-    ws.getCell(currentRow, 4).value = ticket['Ticket name'] || '';
-    ws.getCell(currentRow, 5).value = ticket['Ticket status'] || '';
-    ws.getCell(currentRow, 6).value = ticket['Assignee'] || '';
-    ws.getCell(currentRow, 7).value = ticket.Reviewer || '';
-    ws.getCell(currentRow, 8).value = ticket.ProductType || '';
-    ws.getCell(currentRow, 9).value = ticket.TemplateName || '';
-    ws.getCell(currentRow, 10).value = ticket['Ticket description'] || '';
-    ws.getCell(currentRow, 11).value = ticket['Backstage Experience page'] || '';
-    ws.getCell(currentRow, 12).value = ticket.PublicPreviewLink || '';
+    ws.getCell(currentRow, 4).value = ticket['Instance ID'] || '';
+    ws.getCell(currentRow, 5).value = ticket['Ticket name'] || '';
+    ws.getCell(currentRow, 6).value = ticket['Ticket status'] || '';
+    ws.getCell(currentRow, 7).value = ticket['Assignee'] || '';
+    ws.getCell(currentRow, 8).value = ticket.Reviewer || '';
+    ws.getCell(currentRow, 9).value = ticket.ProductType || '';
+    ws.getCell(currentRow, 10).value = ticket.TemplateName || '';
+    ws.getCell(currentRow, 11).value = ticket['Ticket description'] || '';
+    ws.getCell(currentRow, 12).value = ticket['Backstage Experience page'] || '';
+    ws.getCell(currentRow, 13).value = ticket.PublicPreviewLink || '';
     currentRow++;
   }
 }
@@ -577,24 +668,55 @@ export async function exportToExcel(
   result: AnalysisResult,
   analysisType: AnalysisType,
   allTickets: CategorizedTicket[],
-  includeComparison: boolean = false
+  includeComparison: boolean = false,
+  storedIssues?: any[]
 ): Promise<Blob> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'QC Ticket Analyzer';
   workbook.created = new Date();
   
+  // Build issue comments from stored issues or fetch them
+  let issueComments: Record<string, string> = { ...ISSUE_COMMENTS };
+  
+  if (storedIssues) {
+    // Use passed storedIssues
+    console.log('[Excel Export] Using passed stored issues:', storedIssues.length);
+    storedIssues.forEach((issue: any) => {
+      if (issue.comment) {
+        issueComments[issue.name] = issue.comment;
+      }
+    });
+    console.log('[Excel Export] Issue comments loaded:', Object.keys(issueComments).length);
+  } else {
+    // Try to fetch if not provided
+    try {
+      const response = await fetch('/api/categories');
+      if (response.ok) {
+        const data = await response.json();
+        const fetchedIssues = data.issues || data.categories || [];
+        fetchedIssues.forEach((issue: any) => {
+          if (issue.comment) {
+            issueComments[issue.name] = issue.comment;
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch issue comments, using defaults:', err);
+    }
+  }
+  
   // Create dashboard sheet
-  await createDashboardSheet(workbook, result, analysisType, allTickets, includeComparison);
+  await createDashboardSheet(workbook, result, analysisType, allTickets, includeComparison, issueComments);
   
   // Create category sheets (only for categories with tickets)
-  for (const categoryResult of result.categoryResults) {
-    if (categoryResult.count > 0 && categoryResult.category !== 'Uncategorized') {
-      createCategorySheet(workbook, categoryResult.category, categoryResult.tickets);
+  for (const issueResult of result.issueResults) {
+    if (issueResult.count > 0 && issueResult.issue !== 'Uncategorized') {
+      createCategorySheet(workbook, issueResult.issue, issueResult.tickets);
     }
   }
   
   // Add Uncategorized sheet if there are uncategorized tickets
-  const uncategorized = result.categoryResults.find(c => c.category === 'Uncategorized');
+  const uncategorized = result.issueResults.find(c => c.issue === 'Uncategorized');
   if (uncategorized && uncategorized.count > 0) {
     createCategorySheet(workbook, 'Uncategorized', uncategorized.tickets);
   }
