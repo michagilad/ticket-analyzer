@@ -6,7 +6,7 @@ import {
   ANALYSIS_CONFIGS,
   CategorizedTicket
 } from './types';
-import { getTopProductTypes, getTopProductTypeForCategory, getTopProductTypesWithCategoryBreakdown } from './analyzer';
+import { getTopProductTypes, getTopProductTypeForCategory, getTopProductTypesWithCategoryBreakdown, getStuckTicketAnalysis } from './analyzer';
 import { ISSUE_COMMENTS } from './issueComments';
 
 /**
@@ -73,6 +73,7 @@ async function createDashboardSheet(
   analysisType: AnalysisType,
   allTickets: CategorizedTicket[],
   includeComparison: boolean = false,
+  includeStuckTickets: boolean = false,
   issueComments: Record<string, string> = {}
 ): Promise<void> {
   const config = ANALYSIS_CONFIGS[analysisType];
@@ -253,8 +254,8 @@ async function createDashboardSheet(
     currentRow++;
   }
   
-  // TOP 5 PRODUCT TYPES
-  if (allTickets.some(t => t.ProductType)) {
+  // TOP 5 PRODUCT TYPES (skip for dimensions analysis)
+  if (analysisType !== 'dimensions' && allTickets.some(t => t.ProductType && t.ProductType.trim() !== '')) {
     const topProducts = getTopProductTypes(allTickets, 5);
     if (topProducts.length > 0) {
       // Section header
@@ -289,10 +290,25 @@ async function createDashboardSheet(
     }
   }
   
-  // ISSUE BREAKDOWN
-  const categoryColCount = hasComparison 
-    ? (config.includeDevFactory && config.includeCategory ? 9 : 7)
-    : (config.includeDevFactory && config.includeCategory ? 7 : 5);
+  // CATEGORY BREAKDOWN
+  let categoryColCount: number;
+  if (hasComparison) {
+    if (config.includeDevFactory && config.includeIssueType) {
+      categoryColCount = 9;
+    } else if (analysisType === 'dimensions') {
+      categoryColCount = 6; // No Top Product Type column
+    } else {
+      categoryColCount = 7;
+    }
+  } else {
+    if (config.includeDevFactory && config.includeIssueType) {
+      categoryColCount = 7;
+    } else if (analysisType === 'dimensions') {
+      categoryColCount = 4; // No Top Product Type column
+    } else {
+      categoryColCount = 5;
+    }
+  }
   
   ws.mergeCells(currentRow, 1, currentRow, categoryColCount);
   const catSectionCell = ws.getCell(currentRow, 1);
@@ -301,7 +317,7 @@ async function createDashboardSheet(
   catSectionCell.font = STYLES.sectionHeader.font;
   currentRow++;
   
-  // Category headers
+  // Category headers (skip Top Product Type for dimensions analysis)
   let catHeaders: string[];
   if (hasComparison) {
     catHeaders = config.includeDevFactory && config.includeCategory
@@ -359,7 +375,7 @@ async function createDashboardSheet(
         ws.getCell(currentRow, 7).value = cat.metadata.devFactory || '';
         ws.getCell(currentRow, 8).value = cat.metadata.category || '';
         ws.getCell(currentRow, 9).value = topProduct;
-      } else {
+      } else if (analysisType !== 'dimensions') {
         ws.getCell(currentRow, 7).value = topProduct;
       }
     } else {
@@ -379,7 +395,7 @@ async function createDashboardSheet(
         ws.getCell(currentRow, 5).value = cat.metadata.devFactory || '';
         ws.getCell(currentRow, 6).value = cat.metadata.category || '';
         ws.getCell(currentRow, 7).value = topProduct;
-      } else {
+      } else if (analysisType !== 'dimensions') {
         ws.getCell(currentRow, 5).value = topProduct;
       }
     }
@@ -577,6 +593,43 @@ async function createDashboardSheet(
       ws.getCell(currentRow, 4).value = createVisualBar(product.percentage, 20);
       ws.getCell(currentRow, 5).value = categoryStr;
       currentRow++;
+    }
+  }
+  
+  // STUCK TICKETS ANALYSIS
+  if (includeStuckTickets) {
+    const stuckAnalysis = getStuckTicketAnalysis(allTickets, 5);
+    
+    if (stuckAnalysis.totalStuckTickets > 0) {
+      currentRow++; // Add spacing
+      
+      ws.mergeCells(currentRow, 1, currentRow, 4);
+      const stuckSectionCell = ws.getCell(currentRow, 1);
+      stuckSectionCell.value = `STUCK TICKETS ANALYSIS (${stuckAnalysis.totalStuckTickets} tickets - ${stuckAnalysis.stuckPercentage.toFixed(1)}% of total)`;
+      stuckSectionCell.fill = STYLES.sectionHeader.fill;
+      stuckSectionCell.font = STYLES.sectionHeader.font;
+      currentRow++;
+      
+      // Column headers for stuck tickets
+      const stuckHeaders = ['Issue Category', 'Count', '% of Stuck', 'Visual'];
+      stuckHeaders.forEach((header, idx) => {
+        const cell = ws.getCell(currentRow, idx + 1);
+        cell.value = header;
+        cell.fill = STYLES.columnHeader.fill;
+        cell.font = STYLES.columnHeader.font;
+        cell.alignment = STYLES.columnHeader.alignment;
+        cell.border = STYLES.columnHeader.border;
+      });
+      currentRow++;
+      
+      // Top 5 categories for stuck tickets
+      for (const cat of stuckAnalysis.topCategories) {
+        ws.getCell(currentRow, 1).value = cat.category;
+        ws.getCell(currentRow, 2).value = cat.count;
+        ws.getCell(currentRow, 3).value = `${cat.percentage.toFixed(1)}%`;
+        ws.getCell(currentRow, 4).value = createVisualBar(cat.percentage, 20);
+        currentRow++;
+      }
     }
   }
 }

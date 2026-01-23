@@ -12,7 +12,8 @@ import {
   Settings2,
   GitCompare,
   FileText,
-  Flag
+  Flag,
+  AlertCircle
 } from 'lucide-react';
 import Link from 'next/link';
 import FileUpload, { FileType } from '@/components/FileUpload';
@@ -42,6 +43,7 @@ interface AnalysisResultWithType {
   result: AnalysisResult;
   categorizedTickets: CategorizedTicket[];
   showComparison: boolean;
+  includeStuckTickets: boolean;
 }
 
 interface FlaggedData {
@@ -216,7 +218,8 @@ export default function Home() {
           type,
           result: analysisResult,
           categorizedTickets: processed,
-          showComparison: hasComparison
+          showComparison: hasComparison,
+          includeStuckTickets: false
         });
       }
       
@@ -236,12 +239,19 @@ export default function Home() {
     ));
   };
 
+  const toggleStuckTickets = (index: number) => {
+    setResults(prev => prev.map((r, i) => 
+      i === index ? { ...r, includeStuckTickets: !r.includeStuckTickets } : r
+    ));
+  };
+
   const handleDownload = async (resultWithType: AnalysisResultWithType) => {
     const blob = await exportToExcel(
       resultWithType.result, 
       resultWithType.type, 
       resultWithType.categorizedTickets, 
       resultWithType.showComparison,
+      resultWithType.includeStuckTickets,
       storedIssues || undefined
     );
     const filename = generateFilename(resultWithType.type, resultWithType.showComparison);
@@ -271,6 +281,8 @@ export default function Home() {
     const blob = await generatePDFDashboard(resultWithType.result, {
       title: `${ANALYSIS_CONFIGS[resultWithType.type].name} Dashboard`,
       showComparison: resultWithType.showComparison,
+      includeStuckTickets: resultWithType.includeStuckTickets,
+      allTickets: resultWithType.categorizedTickets,
     });
     const filename = `${ANALYSIS_CONFIGS[resultWithType.type].name.replace(/\s+/g, '_')}_Dashboard_${new Date().toISOString().split('T')[0]}.pdf`;
     downloadPDFDashboard(blob, filename);
@@ -565,7 +577,7 @@ export default function Home() {
 
                 {/* Comparison Toggle */}
                 {activeResult?.result.comparison && (
-                  <div className="flex items-center justify-between mb-6 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                  <div className="flex items-center justify-between mb-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
                     <div className="flex items-center gap-2">
                       <GitCompare className="w-4 h-4 text-blue-400" />
                       <span className="text-sm text-blue-300">Week-over-Week Comparison</span>
@@ -584,6 +596,31 @@ export default function Home() {
                       `}
                     >
                       {activeResult.showComparison ? 'Comparison ON' : 'Comparison OFF'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Stuck Tickets Toggle */}
+                {activeResult && (
+                  <div className="flex items-center justify-between mb-6 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-400" />
+                      <span className="text-sm text-amber-300">Include Stuck Tickets Analysis</span>
+                      <span className="text-xs text-amber-400/70">
+                        (Top 5 issue categories for stuck tickets)
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => toggleStuckTickets(activeResultIndex)}
+                      className={`
+                        px-4 py-1.5 rounded-lg text-sm font-medium transition-all
+                        ${activeResult.includeStuckTickets
+                          ? 'bg-amber-600 text-white'
+                          : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }
+                      `}
+                    >
+                      {activeResult.includeStuckTickets ? 'Stuck Analysis ON' : 'Stuck Analysis OFF'}
                     </button>
                   </div>
                 )}

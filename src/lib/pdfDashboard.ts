@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
-import { AnalysisResult } from './types';
+import { AnalysisResult, CategorizedTicket } from './types';
+import { getStuckTicketAnalysis } from './analyzer';
 
 // Color palette matching the Excel export style
 const COLORS = {
@@ -28,6 +29,8 @@ interface DashboardOptions {
   title?: string;
   showComparison?: boolean;
   dateRange?: string;
+  includeStuckTickets?: boolean;
+  allTickets?: CategorizedTicket[];
 }
 
 // Helper to convert hex to RGB
@@ -257,6 +260,8 @@ export async function generatePDFDashboard(
       month: 'long', 
       day: 'numeric' 
     }),
+    includeStuckTickets = false,
+    allTickets = [],
   } = options;
 
   const pdf = new jsPDF({
@@ -589,6 +594,93 @@ export async function generatePDFDashboard(
 
     yPos += rowHeight;
     rowCount++;
+  }
+
+  // ========== STUCK TICKETS ANALYSIS (Optional) ==========
+  if (includeStuckTickets && allTickets.length > 0) {
+    const stuckAnalysis = getStuckTicketAnalysis(allTickets, 5);
+    
+    if (stuckAnalysis.totalStuckTickets > 0) {
+      // Check if we need a new page
+      if (yPos > pageHeight - 80) {
+        pdf.addPage();
+        
+        // Header on new page
+        pdf.setFillColor(hexToRgb(COLORS.primary).r, hexToRgb(COLORS.primary).g, hexToRgb(COLORS.primary).b);
+        pdf.rect(0, 0, pageWidth, 18, 'F');
+        pdf.setFontSize(14);
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Stuck Tickets Analysis', pageWidth / 2, 12, { align: 'center' });
+        
+        yPos = 26;
+      } else {
+        yPos += 10;
+      }
+      
+      // Section title
+      pdf.setFontSize(10);
+      pdf.setTextColor(COLORS.primary);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(`STUCK TICKETS ANALYSIS (${stuckAnalysis.totalStuckTickets} tickets - ${stuckAnalysis.stuckPercentage.toFixed(1)}% of total)`, margin, yPos);
+      yPos += 6;
+      
+      // Table header for stuck tickets
+      const stuckColWidths = [100, 30, 30, 50];
+      const stuckTableWidth = stuckColWidths.reduce((a, b) => a + b, 0);
+      
+      pdf.setFillColor(hexToRgb(COLORS.secondary).r, hexToRgb(COLORS.secondary).g, hexToRgb(COLORS.secondary).b);
+      pdf.rect(margin, yPos, stuckTableWidth, 7, 'F');
+      
+      let stuckColX = margin + 2;
+      pdf.setFontSize(8);
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFont('helvetica', 'bold');
+      
+      const stuckHeaders = ['Issue Category', 'Count', '% of Stuck', 'Visual'];
+      stuckHeaders.forEach((header, i) => {
+        pdf.text(header, stuckColX, yPos + 5);
+        stuckColX += stuckColWidths[i];
+      });
+      
+      yPos += 8;
+      
+      // Stuck tickets data rows
+      for (let i = 0; i < stuckAnalysis.topCategories.length; i++) {
+        const cat = stuckAnalysis.topCategories[i];
+        
+        // Alternate row colors
+        if (i % 2 === 0) {
+          pdf.setFillColor(248, 249, 250);
+          pdf.rect(margin, yPos, stuckTableWidth, rowHeight, 'F');
+        }
+        
+        stuckColX = margin + 2;
+        pdf.setFontSize(7);
+        pdf.setTextColor(COLORS.text);
+        pdf.setFont('helvetica', 'normal');
+        
+        // Category name (truncate if needed)
+        const displayCat = cat.category.length > 45 ? cat.category.substring(0, 42) + '...' : cat.category;
+        pdf.text(displayCat, stuckColX, yPos + 4);
+        stuckColX += stuckColWidths[0];
+        
+        // Count
+        pdf.text(cat.count.toString(), stuckColX, yPos + 4);
+        stuckColX += stuckColWidths[1];
+        
+        // Percentage
+        pdf.text(`${cat.percentage.toFixed(1)}%`, stuckColX, yPos + 4);
+        stuckColX += stuckColWidths[2];
+        
+        // Visual bar
+        const barWidth = (cat.percentage / 100) * 40;
+        pdf.setFillColor(hexToRgb(COLORS.warning).r, hexToRgb(COLORS.warning).g, hexToRgb(COLORS.warning).b);
+        pdf.rect(stuckColX, yPos + 1, barWidth, 4, 'F');
+        
+        yPos += rowHeight;
+      }
+    }
   }
 
   // Footer
