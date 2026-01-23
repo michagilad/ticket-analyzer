@@ -293,7 +293,7 @@ async function createDashboardSheet(
   // CATEGORY BREAKDOWN
   let categoryColCount: number;
   if (hasComparison) {
-    if (config.includeDevFactory && config.includeIssueType) {
+    if (config.includeDevFactory && config.includeCategory) {
       categoryColCount = 9;
     } else if (analysisType === 'dimensions') {
       categoryColCount = 6; // No Top Product Type column
@@ -301,7 +301,7 @@ async function createDashboardSheet(
       categoryColCount = 7;
     }
   } else {
-    if (config.includeDevFactory && config.includeIssueType) {
+    if (config.includeDevFactory && config.includeCategory) {
       categoryColCount = 7;
     } else if (analysisType === 'dimensions') {
       categoryColCount = 4; // No Top Product Type column
