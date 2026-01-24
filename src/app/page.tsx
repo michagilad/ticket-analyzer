@@ -314,9 +314,19 @@ export default function Home() {
             <Sparkles className="w-4 h-4 text-violet-400" />
             <span className="text-sm text-violet-300 font-medium">QC Ticket Analysis Tool</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-slate-100 via-slate-200 to-slate-300 bg-clip-text text-transparent">
-            Ticket Analyzer
-          </h1>
+          <div className="flex items-center justify-center gap-4 mb-6">
+            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-slate-100 via-slate-200 to-slate-300 bg-clip-text text-transparent">
+              Ticket Analyzer
+            </h1>
+            <Link
+              href="/flagged"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-all text-sm font-medium"
+              title="View Flagged Experiences"
+            >
+              <Flag className="w-4 h-4" />
+              Flagged QC
+            </Link>
+          </div>
         </header>
 
         {/* Tab Navigation */}
