@@ -705,10 +705,7 @@ function FlaggedPageContent() {
               {/* Right Column - Video Preview */}
               <div className="lg:sticky lg:top-24 lg:self-start">
                 <div className="bg-gradient-to-br from-slate-800/80 to-slate-800/50 rounded-xl border border-slate-700/50 p-5 shadow-xl">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">Video Preview</h3>
-                    <Flag className="w-4 h-4 text-amber-400" />
-                  </div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">Video Preview</h3>
                   <EkoEmbed instanceId={currentExperience.instanceId} />
                 </div>
               </div>
