@@ -486,11 +486,12 @@ function FlaggedPageContent() {
         ) : (
           <div className="space-y-6">
             {/* Category Navigation */}
-            <div className="bg-slate-800/30 rounded-xl border border-slate-700/50 p-6">
-              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-4">
+            <div className="bg-gradient-to-br from-slate-800/60 to-slate-800/30 rounded-xl border border-slate-700/50 p-5">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <Flag className="w-3.5 h-3.5" />
                 Jump to Issue
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {flaggedData.map((group) => {
                   const firstIndexInCategory = allExperiences.findIndex(exp => exp.category === group.category);
                   const isActive = currentExperience?.category === group.category;
@@ -500,16 +501,16 @@ function FlaggedPageContent() {
                       key={group.category}
                       onClick={() => jumpToCategory(group.category)}
                       className={`
-                        text-left px-4 py-3 rounded-lg transition-all
+                        text-left px-3 py-2.5 rounded-lg transition-all text-sm font-medium
                         ${isActive
-                          ? 'bg-amber-500/20 border-2 border-amber-500/50 text-amber-300'
-                          : 'bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-700/50 hover:border-slate-600'
+                          ? 'bg-amber-500/20 border border-amber-500/50 text-amber-300 shadow-lg shadow-amber-500/10'
+                          : 'bg-slate-800/70 border border-slate-700/50 text-slate-300 hover:bg-slate-700/70 hover:border-slate-600'
                         }
                       `}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">{group.category}</span>
-                        <span className={`text-xs ${isActive ? 'text-amber-400' : 'text-slate-500'}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate">{group.category}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${isActive ? 'bg-amber-500/30 text-amber-200' : 'bg-slate-700/70 text-slate-400'}`}>
                           {group.experiences.length}
                         </span>
                       </div>
@@ -519,19 +520,12 @@ function FlaggedPageContent() {
               </div>
             </div>
 
-            {/* Category Badge */}
-            <div className="flex items-center justify-center gap-2">
-              <span className="px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm font-medium">
-                {currentExperience.category}
-              </span>
-            </div>
-
             {/* Main Content - Side by Side Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
               {/* Left Column - Info & Details */}
-              <div className="space-y-6">
+              <div className="space-y-4">
             {/* Experience Info Card */}
-            <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-800/50 rounded-xl border border-slate-700/50 p-6 shadow-xl">
               {isEditing && editedExperience ? (
                 // Edit Mode
                 <div className="space-y-4">
@@ -581,51 +575,65 @@ function FlaggedPageContent() {
                 </div>
               ) : (
                 // View Mode
-                <div className="space-y-4">
-                  <div>
-                    <span className="text-xs text-slate-500 uppercase tracking-wide">Experience Name</span>
-                    <h3 className="text-lg font-semibold text-white mt-1">
-                      {currentExperience.experienceName || 'Unknown Experience'}
-                    </h3>
-                  </div>
-                  <div>
-                    <span className="text-xs text-slate-500 uppercase tracking-wide">Ticket Name</span>
-                    <p className="text-slate-300 mt-1">{currentExperience.ticketName}</p>
-                  </div>
-                  {currentExperience.ticketDescription && (
-                    <div>
-                      <span className="text-xs text-slate-500 uppercase tracking-wide">Ticket Description</span>
-                      <p className="text-slate-300 mt-1 text-sm">{currentExperience.ticketDescription}</p>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-4 pt-2">
-                    <div>
-                      <span className="text-xs text-slate-500 uppercase tracking-wide">Status</span>
-                      <div className="mt-1">
+                <div className="space-y-5">
+                  {/* Header with category badge */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="px-3 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold uppercase tracking-wide">
+                          {currentExperience.category}
+                        </span>
                         <span className={`
-                          text-xs px-2 py-1 rounded-full
+                          text-xs px-2.5 py-1 rounded-full font-medium
                           ${currentExperience.ticketStatus.toLowerCase() === 'in progress' 
-                            ? 'bg-blue-500/20 text-blue-400' 
+                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
                             : currentExperience.ticketStatus.toLowerCase() === 'open'
-                            ? 'bg-amber-500/20 text-amber-400'
-                            : 'bg-slate-500/20 text-slate-400'
+                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                            : 'bg-slate-500/20 text-slate-400 border border-slate-500/30'
                           }
                         `}>
                           {currentExperience.ticketStatus}
                         </span>
                       </div>
-                    </div>
-                    <div>
-                      <span className="text-xs text-slate-500 uppercase tracking-wide">Instance ID</span>
-                      <p className="text-slate-300 mt-1 font-mono text-sm">{currentExperience.instanceId}</p>
+                      <h3 className="text-xl font-bold text-white">
+                        {currentExperience.experienceName || 'Unknown Experience'}
+                      </h3>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 pt-2">
+
+                  {/* Divider */}
+                  <div className="border-t border-slate-700/50"></div>
+
+                  {/* Ticket Info */}
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ticket</span>
+                      <p className="text-slate-200 mt-1 font-medium">{currentExperience.ticketName}</p>
+                    </div>
+                    {currentExperience.ticketDescription && (
+                      <div>
+                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Description</span>
+                        <p className="text-slate-300 mt-1 text-sm leading-relaxed">{currentExperience.ticketDescription}</p>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Instance ID</span>
+                      <p className="text-slate-300 mt-1 font-mono text-sm bg-slate-900/50 px-3 py-1.5 rounded-lg inline-block">
+                        {currentExperience.instanceId}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-slate-700/50"></div>
+
+                  {/* Actions */}
+                  <div className="flex flex-wrap items-center gap-2">
                     <a
                       href={`https://video.eko.com/s/assetReview/?projectId=${currentExperience.instanceId}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-500/10 border border-violet-500/30 text-violet-400 font-medium hover:bg-violet-500/20 transition-colors text-sm"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition-all shadow-lg shadow-violet-500/20 text-sm"
                     >
                       <ExternalLink className="w-4 h-4" />
                       Open in Asset Review
@@ -634,14 +642,14 @@ function FlaggedPageContent() {
                       <>
                         <button
                           onClick={startEditing}
-                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 font-medium hover:bg-amber-500/20 transition-colors text-sm"
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium transition-colors text-sm"
                         >
                           <Edit2 className="w-4 h-4" />
-                          Edit Details
+                          Edit
                         </button>
                         <button
                           onClick={deleteExperience}
-                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 font-medium hover:bg-red-500/20 transition-colors text-sm"
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 font-medium hover:bg-red-500/20 transition-colors text-sm"
                         >
                           <Trash2 className="w-4 h-4" />
                           Delete
@@ -654,36 +662,34 @@ function FlaggedPageContent() {
             </div>
 
             {/* Navigation Controls */}
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/30 rounded-xl border border-slate-700/50 p-4">
               <button
                 onClick={goToPrevious}
                 disabled={currentIndex === 0}
                 className={`
-                  flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all
+                  flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all
                   ${currentIndex === 0
                     ? 'bg-slate-800/50 text-slate-600 cursor-not-allowed'
-                    : 'bg-slate-800 text-white hover:bg-slate-700 border border-slate-700'
+                    : 'bg-slate-700 text-white hover:bg-slate-600'
                   }
                 `}
               >
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronLeft className="w-4 h-4" />
                 Previous
               </button>
 
               <div className="text-center">
-                <p className="text-sm text-slate-400">
-                  Experience {currentIndex + 1} of {totalCount}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  Use arrow keys to navigate
-                </p>
+                <div className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-0.5">Experience</div>
+                <div className="text-white font-bold text-lg">
+                  {currentIndex + 1} <span className="text-slate-500 font-normal">of</span> {totalCount}
+                </div>
               </div>
 
               <button
                 onClick={goToNext}
                 disabled={currentIndex === totalCount - 1}
                 className={`
-                  flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all
+                  flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all
                   ${currentIndex === totalCount - 1
                     ? 'bg-slate-800/50 text-slate-600 cursor-not-allowed'
                     : 'bg-violet-600 text-white hover:bg-violet-500 shadow-lg shadow-violet-500/25'
@@ -691,15 +697,18 @@ function FlaggedPageContent() {
                 `}
               >
                 Next
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
               </div>
 
               {/* Right Column - Video Preview */}
               <div className="lg:sticky lg:top-24 lg:self-start">
-                <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
-                  <h3 className="text-sm font-semibold text-slate-300 mb-4">Preview</h3>
+                <div className="bg-gradient-to-br from-slate-800/80 to-slate-800/50 rounded-xl border border-slate-700/50 p-5 shadow-xl">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">Video Preview</h3>
+                    <Flag className="w-4 h-4 text-amber-400" />
+                  </div>
                   <EkoEmbed instanceId={currentExperience.instanceId} />
                 </div>
               </div>
