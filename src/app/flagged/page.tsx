@@ -387,8 +387,9 @@ function FlaggedPageContent() {
                   <button
                     onClick={clearAllForDate}
                     className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm hover:bg-red-500/20 transition-colors"
+                    title={`Clear all ${totalCount} flagged experiences for ${format(parseISO(selectedDate), 'MMM d, yyyy')}`}
                   >
-                    Clear All ({totalCount})
+                    Clear This Date
                   </button>
                 )}
               </div>
