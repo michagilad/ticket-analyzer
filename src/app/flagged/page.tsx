@@ -705,6 +705,8 @@ function FlaggedPageContent() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
       </main>
     </div>
   );
