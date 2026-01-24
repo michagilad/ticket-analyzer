@@ -500,6 +500,27 @@ export default function Home() {
                           
                           if (response.ok) {
                             console.log('✓ Saved to Redis successfully');
+                            
+                            // Send Slack notification
+                            try {
+                              const slackResponse = await fetch('/api/slack/notify', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ 
+                                  data: byIssue,
+                                  date: new Date().toISOString().split('T')[0]
+                                })
+                              });
+                              
+                              if (slackResponse.ok) {
+                                const slackResult = await slackResponse.json();
+                                console.log('✓ Slack notification sent:', slackResult.totalCount, 'experiences');
+                              } else {
+                                console.log('ℹ Slack notification skipped (webhook not configured)');
+                              }
+                            } catch (slackError) {
+                              console.warn('Could not send Slack notification:', slackError);
+                            }
                           } else {
                             const errorData = await response.json();
                             console.warn('Redis not available, using sessionStorage fallback:', errorData.error);
