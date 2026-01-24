@@ -303,6 +303,31 @@ function FlaggedPageContent() {
     }
   };
 
+  const clearAllForDate = async () => {
+    if (!confirm(`Are you sure you want to delete ALL flagged experiences for ${format(parseISO(selectedDate), 'MMM d, yyyy')}?\n\nThis will delete ${totalCount} experiences and cannot be undone.`)) {
+      return;
+    }
+
+    // Delete all data for this date
+    try {
+      await fetch('/api/flagged', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: [], date: selectedDate })
+      });
+    } catch (error) {
+      console.error('Error clearing data from Redis:', error);
+    }
+    
+    // Clear sessionStorage if it's the current date
+    if (selectedDate === format(new Date(), 'yyyy-MM-dd')) {
+      sessionStorage.removeItem('flaggedExperiences');
+    }
+    
+    // Redirect back to analyzer
+    window.location.href = '/';
+  };
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -358,6 +383,14 @@ function FlaggedPageContent() {
                 >
                   {showCalendar ? 'Hide Calendar' : 'Show Calendar'}
                 </button>
+                {isAdminMode && totalCount > 0 && (
+                  <button
+                    onClick={clearAllForDate}
+                    className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm hover:bg-red-500/20 transition-colors"
+                  >
+                    Clear All ({totalCount})
+                  </button>
+                )}
               </div>
             </div>
         </div>
