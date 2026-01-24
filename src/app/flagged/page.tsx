@@ -526,6 +526,10 @@ function FlaggedPageContent() {
               </span>
             </div>
 
+            {/* Main Content - Side by Side Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column - Info & Details */}
+              <div className="space-y-6">
             {/* Experience Info Card */}
             <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
               {isEditing && editedExperience ? (
@@ -649,11 +653,6 @@ function FlaggedPageContent() {
               )}
             </div>
 
-            {/* Eko Embed */}
-            <div className="bg-slate-800/30 rounded-xl border border-slate-700/50 p-6">
-              <EkoEmbed instanceId={currentExperience.instanceId} />
-            </div>
-
             {/* Navigation Controls */}
             <div className="flex items-center justify-between gap-4">
               <button
@@ -696,7 +695,16 @@ function FlaggedPageContent() {
               </button>
             </div>
           </div>
-        )}
+              </div>
+
+              {/* Right Column - Video Preview */}
+              <div className="lg:sticky lg:top-24 lg:self-start">
+                <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
+                  <h3 className="text-sm font-semibold text-slate-300 mb-4">Preview</h3>
+                  <EkoEmbed instanceId={currentExperience.instanceId} />
+                </div>
+              </div>
+            </div>
       </main>
     </div>
   );
