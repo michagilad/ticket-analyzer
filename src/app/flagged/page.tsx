@@ -83,8 +83,9 @@ function FlaggedPageContent() {
   // Check if admin mode is enabled
   const isAdminMode = searchParams.get('admin') !== null;
   
-  // Get selected date from URL, default to today
-  const selectedDate = searchParams.get('date') || format(new Date(), 'yyyy-MM-dd');
+  // Get selected date from URL - will be determined dynamically if not specified
+  const urlDate = searchParams.get('date');
+  const [selectedDate, setSelectedDate] = useState<string>(urlDate || format(new Date(), 'yyyy-MM-dd'));
   
   // Get current index from URL, default to 0
   const currentIndex = parseInt(searchParams.get('index') || '0', 10);
@@ -101,21 +102,48 @@ function FlaggedPageContent() {
     // Load flagged data from Redis
     const loadData = async () => {
       try {
-        // Fetch available dates
+        // Fetch available dates first
         const datesResponse = await fetch('/api/flagged/dates');
+        let dates: string[] = [];
         if (datesResponse.ok) {
           const datesData = await datesResponse.json();
-          setAvailableDates(datesData.dates || []);
+          dates = datesData.dates || [];
+          setAvailableDates(dates);
+        }
+        
+        // Determine which date to load
+        let dateToLoad = urlDate || format(new Date(), 'yyyy-MM-dd');
+        
+        // If no date in URL and we have available dates, use the most recent one
+        if (!urlDate && dates.length > 0) {
+          dateToLoad = dates[0]; // dates are sorted newest first
+          setSelectedDate(dateToLoad);
+          
+          // Redirect to the most recent date
+          const adminParam = isAdminMode ? '&admin' : '';
+          const indexParam = searchParams.get('index') ? `&index=${searchParams.get('index')}` : '';
+          window.location.href = `/flagged?date=${dateToLoad}${indexParam}${adminParam}`;
+          return;
         }
         
         // Fetch data for selected date
-        const dataResponse = await fetch(`/api/flagged?date=${selectedDate}`);
+        const dataResponse = await fetch(`/api/flagged?date=${dateToLoad}`);
         if (dataResponse.ok) {
           const result = await dataResponse.json();
           if (result.exists && result.data && result.data.length > 0) {
             setFlaggedData(result.data);
+            setSelectedDate(dateToLoad);
             return; // Successfully loaded from Redis
           }
+        }
+        
+        // If the selected date has no data but we have other dates, redirect to most recent
+        if (dates.length > 0 && dateToLoad !== dates[0]) {
+          const mostRecentDate = dates[0];
+          setSelectedDate(mostRecentDate);
+          const adminParam = isAdminMode ? '&admin' : '';
+          window.location.href = `/flagged?date=${mostRecentDate}${adminParam}`;
+          return;
         }
         
         // If Redis failed or returned no data, try sessionStorage
@@ -148,7 +176,7 @@ function FlaggedPageContent() {
     };
     
     loadData();
-  }, [selectedDate]);
+  }, [urlDate, isAdminMode, searchParams]);
 
   const goToNext = () => {
     if (currentIndex < totalCount - 1) {
