@@ -61,10 +61,39 @@ export async function GET() {
     
     // Get all dates
     const dates = await redis.smembers(FLAGGED_DATES_KEY);
+    
+    // Verify each date has actual data, remove if empty
+    const validDates: string[] = [];
+    for (const date of dates) {
+      const key = `${FLAGGED_DATA_PREFIX}${date}`;
+      const data = await redis.get(key);
+      
+      if (data) {
+        try {
+          const parsed = JSON.parse(data);
+          // Only keep dates that have non-empty data
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            validDates.push(date);
+          } else {
+            // Remove empty date from set
+            await redis.srem(FLAGGED_DATES_KEY, date);
+            await redis.del(key);
+          }
+        } catch (e) {
+          // Invalid JSON, remove from set
+          await redis.srem(FLAGGED_DATES_KEY, date);
+          await redis.del(key);
+        }
+      } else {
+        // No data for this date, remove from set
+        await redis.srem(FLAGGED_DATES_KEY, date);
+      }
+    }
+    
     await redis.quit();
     
     // Sort dates in descending order (newest first)
-    const sortedDates = dates.sort((a, b) => b.localeCompare(a));
+    const sortedDates = validDates.sort((a, b) => b.localeCompare(a));
     
     return NextResponse.json({
       dates: sortedDates
