@@ -557,6 +557,16 @@ function FlaggedPageContent() {
                       className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:border-violet-500"
                     />
                   </div>
+                  <div>
+                    <label className="text-xs text-slate-500 uppercase tracking-wide block mb-2">Backstage Link</label>
+                    <input
+                      type="text"
+                      value={editedExperience.backstageLink || ''}
+                      onChange={(e) => setEditedExperience({ ...editedExperience, backstageLink: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:border-violet-500"
+                      placeholder="https://..."
+                    />
+                  </div>
                   <div className="flex items-center gap-3 pt-2">
                     <button
                       onClick={saveEdits}
@@ -639,6 +649,17 @@ function FlaggedPageContent() {
                       <ExternalLink className="w-4 h-4" />
                       Open in Asset Review
                     </a>
+                    {currentExperience.backstageLink && (
+                      <a
+                        href={currentExperience.backstageLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium transition-colors text-sm"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Open in Backstage
+                      </a>
+                    )}
                     {isAdminMode && (
                       <>
                         <button

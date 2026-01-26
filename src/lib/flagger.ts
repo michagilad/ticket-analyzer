@@ -53,6 +53,7 @@ export function findExperiencesToFlag(
             ticketName: ticket['Ticket name'] || '',
             ticketStatus: ticket['Ticket status'] || '',
             ticketDescription: ticket['Ticket description'] || '',
+            backstageLink: ticket['Backstage Experience page'] || '',
           };
           
           issueFlags.push(flagged);

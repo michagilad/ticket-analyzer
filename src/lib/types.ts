@@ -62,6 +62,7 @@ export interface FlaggedExperience {
   ticketName: string;
   ticketStatus: string;
   ticketDescription?: string;
+  backstageLink?: string;
 }
 
 export interface IssueMetadata {
