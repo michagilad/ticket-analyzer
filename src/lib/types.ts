@@ -45,7 +45,6 @@ export interface CategorizedTicket {
 
 // Flaggable issues for QC review
 export const FLAGGABLE_ISSUES = [
-  'Bad label - set up',
   'Blurry/out of focus video',
   'Damage/dirty plate',
   'Damaged product',
