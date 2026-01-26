@@ -114,8 +114,26 @@ export async function POST(request: NextRequest) {
     // Clean up old data before saving new data
     await cleanupOldData(redis);
     
-    // Save the flagged data
     const key = `${FLAGGED_DATA_PREFIX}${date}`;
+    
+    // Check if data is empty (admin deleted all experiences for this date)
+    const isEmpty = !data || (Array.isArray(data) && data.length === 0);
+    
+    if (isEmpty) {
+      // Delete the data and remove the date from the set
+      await redis.del(key);
+      await redis.srem(FLAGGED_DATES_KEY, date);
+      
+      await redis.quit();
+      
+      return NextResponse.json({
+        success: true,
+        date,
+        message: 'Flagged data cleared for this date'
+      });
+    }
+    
+    // Save the flagged data
     await redis.set(key, JSON.stringify(data));
     
     // Add the date to the set of dates
