@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart3, Ruler, Factory, Tag, Check, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { AnalysisType, ANALYSIS_CONFIGS, ALL_ISSUES } from '@/lib/types';
 
@@ -62,6 +62,25 @@ export default function AnalysisTypeSelector({
   onCustomCategoriesChange
 }: AnalysisTypeSelectorProps) {
   const [showCustomCategories, setShowCustomCategories] = useState(false);
+  const [availableIssues, setAvailableIssues] = useState<string[]>([...ALL_ISSUES]);
+  
+  // Fetch issues from storage on mount
+  useEffect(() => {
+    const fetchIssues = async () => {
+      try {
+        const response = await fetch('/api/categories');
+        if (response.ok) {
+          const data = await response.json();
+          const storedIssues = data.issues || data.categories || [];
+          const issueNames = storedIssues.map((issue: any) => issue.name);
+          setAvailableIssues(issueNames.filter((name: string) => name !== 'Uncategorized'));
+        }
+      } catch (err) {
+        console.error('Failed to fetch issues:', err);
+      }
+    };
+    fetchIssues();
+  }, []);
   
   const handleToggle = (type: AnalysisType) => {
     if (selectedTypes.includes(type)) {
@@ -89,8 +108,7 @@ export default function AnalysisTypeSelector({
   };
 
   const handleSelectAll = () => {
-    const allIssues = ALL_ISSUES.filter(c => c !== 'Uncategorized');
-    onCustomCategoriesChange([...allIssues]);
+    onCustomCategoriesChange([...availableIssues]);
   };
 
   const handleClearAll = () => {
@@ -229,7 +247,7 @@ export default function AnalysisTypeSelector({
 
             {showCustomCategories && (
               <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-2">
-                {ALL_ISSUES.filter(c => c !== 'Uncategorized').map((issue) => {
+                {availableIssues.map((issue) => {
                   const isSelected = customCategories.includes(issue);
                   return (
                     <button
