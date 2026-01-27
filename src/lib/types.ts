@@ -127,6 +127,7 @@ export interface AnalysisConfig {
   issues: string[];
   includeDevFactory: boolean;
   includeCategory: boolean;
+  includeTopProducts?: boolean; // Optional: defaults to true for backward compatibility
 }
 
 // All 39 issues
@@ -229,7 +230,8 @@ export const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisConfig> = {
     description: 'Full report with all 39 issues',
     issues: ALL_ISSUES.filter(c => c !== 'Uncategorized') as unknown as string[],
     includeDevFactory: true,
-    includeCategory: true
+    includeCategory: true,
+    includeTopProducts: true
   },
   dimensions: {
     type: 'dimensions',
@@ -241,7 +243,8 @@ export const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisConfig> = {
       'Missing dimension values'
     ],
     includeDevFactory: false,
-    includeCategory: false
+    includeCategory: false,
+    includeTopProducts: false
   },
   factory: {
     type: 'factory',
@@ -266,8 +269,9 @@ export const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisConfig> = {
       'Off centered / Off axis',
       'Reflections on product'
     ],
-    includeDevFactory: true,
-    includeCategory: true
+    includeDevFactory: false,
+    includeCategory: false,
+    includeTopProducts: false
   },
   label: {
     type: 'label',
@@ -278,7 +282,8 @@ export const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisConfig> = {
       'Bad label - set up'
     ],
     includeDevFactory: false,
-    includeCategory: false
+    includeCategory: false,
+    includeTopProducts: false
   },
   custom: {
     type: 'custom',
@@ -286,7 +291,8 @@ export const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisConfig> = {
     description: 'Select specific issues to include',
     issues: [], // Will be set dynamically
     includeDevFactory: true,
-    includeCategory: true
+    includeCategory: true,
+    includeTopProducts: true
   }
 };
 

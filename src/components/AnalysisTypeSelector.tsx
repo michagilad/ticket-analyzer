@@ -9,6 +9,12 @@ interface AnalysisTypeSelectorProps {
   onTypesChange: (types: AnalysisType[]) => void;
   customCategories: string[];
   onCustomCategoriesChange: (categories: string[]) => void;
+  customIncludeTopProducts: boolean;
+  onCustomIncludeTopProductsChange: (include: boolean) => void;
+  customIncludeDevFactory: boolean;
+  onCustomIncludeDevFactoryChange: (include: boolean) => void;
+  customIncludeCategory: boolean;
+  onCustomIncludeCategoryChange: (include: boolean) => void;
 }
 
 const ICONS: Record<AnalysisType, React.ReactNode> = {
@@ -59,7 +65,13 @@ export default function AnalysisTypeSelector({
   selectedTypes, 
   onTypesChange,
   customCategories,
-  onCustomCategoriesChange
+  onCustomCategoriesChange,
+  customIncludeTopProducts,
+  onCustomIncludeTopProductsChange,
+  customIncludeDevFactory,
+  onCustomIncludeDevFactoryChange,
+  customIncludeCategory,
+  onCustomIncludeCategoryChange
 }: AnalysisTypeSelectorProps) {
   const [showCustomCategories, setShowCustomCategories] = useState(false);
   const [availableIssues, setAvailableIssues] = useState<string[]>([...ALL_ISSUES]);
@@ -273,6 +285,53 @@ export default function AnalysisTypeSelector({
                 })}
               </div>
             )}
+
+            {/* Custom Analysis Options */}
+            <div className="mt-4 space-y-3 pt-3 border-t border-slate-700">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Additional Sections</p>
+              
+              <label className="flex items-center justify-between cursor-pointer group">
+                <span className="text-sm text-slate-300 group-hover:text-slate-100">Top 5 Product Types</span>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={customIncludeTopProducts}
+                    onChange={(e) => onCustomIncludeTopProductsChange(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-pink-600 transition-colors"></div>
+                  <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                </div>
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer group">
+                <span className="text-sm text-slate-300 group-hover:text-slate-100">Dev vs Factory Breakdown</span>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={customIncludeDevFactory}
+                    onChange={(e) => onCustomIncludeDevFactoryChange(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-pink-600 transition-colors"></div>
+                  <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                </div>
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer group">
+                <span className="text-sm text-slate-300 group-hover:text-slate-100">Issue Category Breakdown</span>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={customIncludeCategory}
+                    onChange={(e) => onCustomIncludeCategoryChange(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-pink-600 transition-colors"></div>
+                  <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                </div>
+              </label>
+            </div>
 
             {customCategories.length === 0 && (
               <p className="text-xs text-amber-400 mt-2">

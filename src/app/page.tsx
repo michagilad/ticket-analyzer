@@ -59,6 +59,9 @@ export default function Home() {
   const [pastMappingsFile, setPastMappingsFile] = useState<File | null>(null);
   const [analysisTypes, setAnalysisTypes] = useState<AnalysisType[]>(['overall']);
   const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [customIncludeTopProducts, setCustomIncludeTopProducts] = useState(true);
+  const [customIncludeDevFactory, setCustomIncludeDevFactory] = useState(true);
+  const [customIncludeCategory, setCustomIncludeCategory] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState<AnalysisResultWithType[]>([]);
   const [activeResultIndex, setActiveResultIndex] = useState(0);
@@ -206,6 +209,14 @@ export default function Home() {
       // Run analysis for each selected type
       const allResults: AnalysisResultWithType[] = [];
       for (const type of analysisTypes) {
+        // For custom analysis, apply custom options to the config
+        if (type === 'custom') {
+          const customConfig = ANALYSIS_CONFIGS.custom;
+          customConfig.includeDevFactory = customIncludeDevFactory;
+          customConfig.includeCategory = customIncludeCategory;
+          customConfig.includeTopProducts = customIncludeTopProducts;
+        }
+        
         // For custom analysis, pass the selected categories
         const analysisResult = runAnalysis(
           tickets, 
@@ -396,6 +407,12 @@ export default function Home() {
                 onTypesChange={setAnalysisTypes}
                 customCategories={customCategories}
                 onCustomCategoriesChange={setCustomCategories}
+                customIncludeTopProducts={customIncludeTopProducts}
+                onCustomIncludeTopProductsChange={setCustomIncludeTopProducts}
+                customIncludeDevFactory={customIncludeDevFactory}
+                onCustomIncludeDevFactoryChange={setCustomIncludeDevFactory}
+                customIncludeCategory={customIncludeCategory}
+                onCustomIncludeCategoryChange={setCustomIncludeCategory}
               />
             </section>
 

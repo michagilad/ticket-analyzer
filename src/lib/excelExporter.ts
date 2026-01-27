@@ -254,8 +254,8 @@ async function createDashboardSheet(
     currentRow++;
   }
   
-  // TOP 5 PRODUCT TYPES (skip for dimensions analysis)
-  if (analysisType !== 'dimensions' && allTickets.some(t => t.ProductType && t.ProductType.trim() !== '')) {
+  // TOP 5 PRODUCT TYPES (only if config allows it)
+  if ((config.includeTopProducts !== false) && allTickets.some(t => t.ProductType && t.ProductType.trim() !== '')) {
     const topProducts = getTopProductTypes(allTickets, 5);
     if (topProducts.length > 0) {
       // Section header
