@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart3, 
   CheckCircle2, 
@@ -14,7 +14,8 @@ import {
   ArrowDown,
   Minus
 } from 'lucide-react';
-import { AnalysisResult, ANALYSIS_CONFIGS, AnalysisType } from '@/lib/types';
+import { AnalysisResult, ANALYSIS_CONFIGS, AnalysisType, IssueMetadata } from '@/lib/types';
+import { ISSUE_METADATA_WITH_DESC } from '@/lib/issueMetadataWithDescriptions';
 
 interface ResultsPreviewProps {
   result: AnalysisResult;
@@ -26,6 +27,34 @@ export default function ResultsPreview({ result, analysisType, showComparison = 
   const config = ANALYSIS_CONFIGS[analysisType];
   const comparison = result.comparison;
   const hasComparison = showComparison && comparison;
+  
+  // State for runtime metadata (includes custom issues)
+  const [issueMetadata, setIssueMetadata] = useState<Record<string, IssueMetadata>>(ISSUE_METADATA_WITH_DESC);
+  
+  // Fetch runtime metadata on mount (includes custom issues with descriptions)
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const response = await fetch('/api/categories');
+        if (response.ok) {
+          const storedIssues = await response.json();
+          // Create metadata from stored issues
+          const runtimeMetadata: Record<string, IssueMetadata> = { ...ISSUE_METADATA_WITH_DESC };
+          for (const issue of storedIssues) {
+            runtimeMetadata[issue.name] = {
+              devFactory: issue.devFactory,
+              category: issue.category,
+              description: issue.comment // Use comment as description
+            };
+          }
+          setIssueMetadata(runtimeMetadata);
+        }
+      } catch (error) {
+        console.warn('Failed to fetch issue metadata for tooltips:', error);
+      }
+    };
+    fetchMetadata();
+  }, []);
   
   // Get top 10 categories for display
   const topCategories = result.issueResults
@@ -216,10 +245,14 @@ export default function ResultsPreview({ result, analysisType, showComparison = 
         <div className="space-y-3">
           {topCategories.map((cat, index) => {
             const catComparison = getCategoryComparison(cat.issue);
+            const metadata = issueMetadata[cat.issue];
             return (
               <div key={cat.issue} className="group">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm text-slate-300 truncate flex-1 mr-2">
+                  <span 
+                    className="text-sm text-slate-300 truncate flex-1 mr-2 cursor-help" 
+                    title={metadata?.description || cat.issue}
+                  >
                     <span className="text-slate-500 mr-2">{index + 1}.</span>
                     {cat.issue}
                   </span>

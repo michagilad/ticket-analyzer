@@ -24,7 +24,8 @@ export function updateRuntimeIssues(storedIssues: StoredIssue[]): void {
   for (const issue of storedIssues) {
     runtimeIssueMetadata[issue.name] = {
       devFactory: issue.devFactory,
-      category: issue.category
+      category: issue.category,
+      description: issue.comment // Use the comment as description for hover
     };
     
     // Add new issues that aren't in defaults
@@ -523,7 +524,14 @@ export function processTickets(
  * Get issue metadata (uses runtime issues which include custom ones)
  */
 export function getIssueMetadata(issue: string): IssueMetadata {
-  return runtimeIssueMetadata[issue] || { devFactory: '', category: '' };
+  return runtimeIssueMetadata[issue] || { devFactory: '', category: '', description: undefined };
+}
+
+/**
+ * Get all runtime issues metadata (for hover tooltips)
+ */
+export function getAllIssueMetadata(): Record<string, IssueMetadata> {
+  return { ...runtimeIssueMetadata };
 }
 
 /**

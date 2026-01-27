@@ -1,4 +1,5 @@
 // QC Ticket Types
+import { ISSUE_COMMENTS } from './issueComments';
 
 export interface Ticket {
   'Ticket ID': string;
@@ -67,6 +68,7 @@ export interface FlaggedExperience {
 export interface IssueMetadata {
   devFactory: 'DEV' | 'FACTORY' | '';
   category: 'COPY' | 'COLOR' | 'CAPTURE' | 'ARTIFACT' | 'TAGGING' | 'BBOX' | 'DIMS' | 'BLUEPRINT' | '';
+  description?: string;
 }
 
 export interface IssueResult {
