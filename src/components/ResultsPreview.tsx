@@ -40,6 +40,24 @@ export default function ResultsPreview({ result, analysisType, showComparison = 
           const storedIssues = await response.json();
           // Create metadata from stored issues
           const runtimeMetadata: Record<string, IssueMetadata> = { ...ISSUE_METADATA_WITH_DESC };
+          
+          // Debug: Check if default descriptions are loaded
+          const bboxMeta = runtimeMetadata['BBOX issue'];
+          if (!bboxMeta?.description) {
+            console.warn('ISSUE_METADATA_WITH_DESC missing descriptions, falling back to ISSUE_COMMENTS');
+            // Fallback: try to load descriptions dynamically
+            try {
+              const { ISSUE_COMMENTS } = await import('@/lib/issueComments');
+              for (const [name, meta] of Object.entries(runtimeMetadata)) {
+                if (!meta.description && ISSUE_COMMENTS[name]) {
+                  runtimeMetadata[name] = { ...meta, description: ISSUE_COMMENTS[name] };
+                }
+              }
+            } catch (err) {
+              console.error('Failed to load ISSUE_COMMENTS:', err);
+            }
+          }
+          
           for (const issue of storedIssues) {
             runtimeMetadata[issue.name] = {
               devFactory: issue.devFactory,
