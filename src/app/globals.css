@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --font-geist-sans: "Geist", system-ui, sans-serif;
-  --font-geist-mono: "Geist Mono", ui-monospace, monospace;
+  --font-inter: "Inter", system-ui, sans-serif;
+  --font-family-sans: var(--font-inter);
 }
 
 /* Custom scrollbar */
@@ -12,16 +12,16 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: rgb(15 23 42); /* slate-900 */
+  background: rgb(249 250 251); /* gray-50 */
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgb(51 65 85); /* slate-700 */
+  background: rgb(209 213 219); /* gray-300 */
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgb(71 85 105); /* slate-600 */
+  background: rgb(156 163 175); /* gray-400 */
 }
 
 /* Animation utilities */

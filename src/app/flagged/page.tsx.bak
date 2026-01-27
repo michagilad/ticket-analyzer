@@ -61,7 +61,7 @@ function EkoEmbed({ instanceId }: { instanceId: string }) {
   return (
     <div 
       ref={embedContainerRef}
-      className="mx-auto bg-white rounded-lg overflow-hidden border border-gray-300"
+      className="mx-auto bg-slate-900 rounded-lg overflow-hidden border border-slate-700"
       style={{ width: '368px', height: '460px' }}
     >
       {/* The script will inject the embed here */}
@@ -401,30 +401,30 @@ function FlaggedPageContent() {
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Calendar View */}
         {showCalendar && (
-          <div className="mb-6 bg-gray-50/30 rounded-xl border border-gray-300/50 p-6">
+          <div className="mb-6 bg-slate-800/30 rounded-xl border border-slate-700/50 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Select Date</h3>
+              <h3 className="text-lg font-semibold text-white">Select Date</h3>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
-                  className="p-1 hover:bg-gray-100 rounded"
+                  className="p-1 hover:bg-slate-700 rounded"
                 >
-                  <ChevronLeft className="w-5 h-5 text-gray-500" />
+                  <ChevronLeft className="w-5 h-5 text-slate-400" />
                 </button>
-                <span className="text-sm text-gray-700 min-w-32 text-center">
+                <span className="text-sm text-slate-300 min-w-32 text-center">
                   {format(currentMonth, 'MMMM yyyy')}
                 </span>
                 <button
                   onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
-                  className="p-1 hover:bg-gray-100 rounded"
+                  className="p-1 hover:bg-slate-700 rounded"
                 >
-                  <ChevronRight className="w-5 h-5 text-gray-500" />
+                  <ChevronRight className="w-5 h-5 text-slate-400" />
                 </button>
               </div>
             </div>
             <div className="grid grid-cols-7 gap-2">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="text-center text-xs text-gray-400 font-medium py-2">
+                <div key={day} className="text-center text-xs text-slate-500 font-medium py-2">
                   {day}
                 </div>
               ))}
@@ -445,12 +445,12 @@ function FlaggedPageContent() {
                     className={`
                       p-2 rounded-lg text-sm transition-all
                       ${isSelected 
-                        ? 'bg-[#6B52FF] text-gray-900 font-semibold' 
+                        ? 'bg-violet-600 text-white font-semibold' 
                         : hasData
-                          ? 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                          : 'bg-gray-50/30 text-gray-300 cursor-not-allowed'
+                          ? 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+                          : 'bg-slate-800/30 text-slate-600 cursor-not-allowed'
                       }
-                      ${isToday && !isSelected ? 'ring-1 ring-[#6B52FF]/50' : ''}
+                      ${isToday && !isSelected ? 'ring-1 ring-violet-500/50' : ''}
                     `}
                   >
                     {format(day, 'd')}
@@ -458,7 +458,7 @@ function FlaggedPageContent() {
                 );
               })}
             </div>
-            <p className="text-xs text-gray-400 mt-4 text-center">
+            <p className="text-xs text-slate-500 mt-4 text-center">
               Dates with flagged experiences are highlighted. Data older than 30 days is automatically deleted.
             </p>
           </div>
@@ -469,16 +469,16 @@ function FlaggedPageContent() {
             <div className="animate-spin w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full" />
           </div>
         ) : totalCount === 0 ? (
-          <div className="bg-gray-50/30 border border-gray-300/50 rounded-xl p-12 text-center">
-            <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-lg font-medium text-gray-900 mb-2">No Flagged Experiences</h2>
-            <p className="text-gray-500 text-sm max-w-md mx-auto">
+          <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-12 text-center">
+            <AlertCircle className="w-12 h-12 text-slate-500 mx-auto mb-4" />
+            <h2 className="text-lg font-medium text-white mb-2">No Flagged Experiences</h2>
+            <p className="text-slate-400 text-sm max-w-md mx-auto">
               Run an analysis first and click "Flag Experiences to QC (BETA)" to see flagged experiences here.
               Only tickets that are not Done or Resolved from these issues will be flagged:
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               {FLAGGABLE_ISSUES.map(cat => (
-                <span key={cat} className="text-xs px-2 py-1 rounded bg-gray-100/50 text-gray-700">
+                <span key={cat} className="text-xs px-2 py-1 rounded bg-slate-700/50 text-slate-300">
                   {cat}
                 </span>
               ))}
@@ -487,8 +487,8 @@ function FlaggedPageContent() {
         ) : (
           <div className="space-y-6">
             {/* Category Navigation */}
-            <div className="bg-gradient-to-br from-slate-800/60 to-slate-800/30 rounded-xl border border-gray-300/50 p-5">
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <div className="bg-gradient-to-br from-slate-800/60 to-slate-800/30 rounded-xl border border-slate-700/50 p-5">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                 <Flag className="w-3.5 h-3.5" />
                 Jump to Issue
               </h3>
@@ -505,13 +505,13 @@ function FlaggedPageContent() {
                         text-left px-3 py-2.5 rounded-lg transition-all text-sm font-medium
                         ${isActive
                           ? 'bg-amber-500/20 border border-amber-500/50 text-amber-300 shadow-lg shadow-amber-500/10'
-                          : 'bg-gray-50/70 border border-gray-300/50 text-gray-700 hover:bg-gray-100/70 hover:border-gray-400'
+                          : 'bg-slate-800/70 border border-slate-700/50 text-slate-300 hover:bg-slate-700/70 hover:border-slate-600'
                         }
                       `}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate">{group.category}</span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded ${isActive ? 'bg-amber-500/30 text-amber-200' : 'bg-gray-100/70 text-gray-500'}`}>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${isActive ? 'bg-amber-500/30 text-amber-200' : 'bg-slate-700/70 text-slate-400'}`}>
                           {group.experiences.length}
                         </span>
                       </div>
@@ -526,58 +526,58 @@ function FlaggedPageContent() {
               {/* Left Column - Info & Details */}
               <div className="space-y-4">
             {/* Experience Info Card */}
-            <div className="bg-gradient-to-br from-slate-800/80 to-slate-800/50 rounded-xl border border-gray-300/50 p-6 shadow-xl">
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-800/50 rounded-xl border border-slate-700/50 p-6 shadow-xl">
               {isEditing && editedExperience ? (
                 // Edit Mode
                 <div className="space-y-4">
                   <div>
-                    <label className="text-xs text-gray-400 uppercase tracking-wide block mb-2">Instance ID</label>
+                    <label className="text-xs text-slate-500 uppercase tracking-wide block mb-2">Instance ID</label>
                     <input
                       type="text"
                       value={editedExperience.instanceId}
                       onChange={(e) => setEditedExperience({ ...editedExperience, instanceId: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-gray-900 focus:outline-none focus:border-violet-500"
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:border-violet-500"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 uppercase tracking-wide block mb-2">Ticket Name</label>
+                    <label className="text-xs text-slate-500 uppercase tracking-wide block mb-2">Ticket Name</label>
                     <input
                       type="text"
                       value={editedExperience.ticketName}
                       onChange={(e) => setEditedExperience({ ...editedExperience, ticketName: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-gray-900 focus:outline-none focus:border-violet-500"
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:border-violet-500"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 uppercase tracking-wide block mb-2">Ticket Description</label>
+                    <label className="text-xs text-slate-500 uppercase tracking-wide block mb-2">Ticket Description</label>
                     <textarea
                       value={editedExperience.ticketDescription || ''}
                       onChange={(e) => setEditedExperience({ ...editedExperience, ticketDescription: e.target.value })}
                       rows={4}
-                      className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-gray-900 focus:outline-none focus:border-violet-500"
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:border-violet-500"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 uppercase tracking-wide block mb-2">Backstage Link</label>
+                    <label className="text-xs text-slate-500 uppercase tracking-wide block mb-2">Backstage Link</label>
                     <input
                       type="text"
                       value={editedExperience.backstageLink || ''}
                       onChange={(e) => setEditedExperience({ ...editedExperience, backstageLink: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-gray-900 focus:outline-none focus:border-violet-500"
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:border-violet-500"
                       placeholder="https://..."
                     />
                   </div>
                   <div className="flex items-center gap-3 pt-2">
                     <button
                       onClick={saveEdits}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-gray-900 hover:bg-emerald-500 transition-colors"
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-colors"
                     >
                       <Save className="w-4 h-4" />
                       Save Changes
                     </button>
                     <button
                       onClick={cancelEditing}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors"
                     >
                       <X className="w-4 h-4" />
                       Cancel
@@ -600,43 +600,43 @@ function FlaggedPageContent() {
                             ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
                             : currentExperience.ticketStatus.toLowerCase() === 'open'
                             ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                            : 'bg-slate-500/20 text-gray-500 border border-slate-500/30'
+                            : 'bg-slate-500/20 text-slate-400 border border-slate-500/30'
                           }
                         `}>
                           {currentExperience.ticketStatus}
                         </span>
                       </div>
-                      <h3 className="text-xl font-bold text-gray-900">
+                      <h3 className="text-xl font-bold text-white">
                         {currentExperience.experienceName || 'Unknown Experience'}
                       </h3>
                     </div>
                   </div>
 
                   {/* Divider */}
-                  <div className="border-t border-gray-300/50"></div>
+                  <div className="border-t border-slate-700/50"></div>
 
                   {/* Ticket Info */}
                   <div className="space-y-3">
                     <div>
-                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Ticket</span>
-                      <p className="text-gray-900 mt-1 font-medium">{currentExperience.ticketName}</p>
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ticket</span>
+                      <p className="text-slate-200 mt-1 font-medium">{currentExperience.ticketName}</p>
                     </div>
                     {currentExperience.ticketDescription && (
                       <div>
-                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Description</span>
-                        <p className="text-gray-700 mt-1 text-sm leading-relaxed">{currentExperience.ticketDescription}</p>
+                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Description</span>
+                        <p className="text-slate-300 mt-1 text-sm leading-relaxed">{currentExperience.ticketDescription}</p>
                       </div>
                     )}
                     <div>
-                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Instance ID</span>
-                      <p className="text-gray-700 mt-1 font-mono text-sm bg-white/50 px-3 py-1.5 rounded-lg inline-block">
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Instance ID</span>
+                      <p className="text-slate-300 mt-1 font-mono text-sm bg-slate-900/50 px-3 py-1.5 rounded-lg inline-block">
                         {currentExperience.instanceId}
                       </p>
                     </div>
                   </div>
 
                   {/* Divider */}
-                  <div className="border-t border-gray-300/50"></div>
+                  <div className="border-t border-slate-700/50"></div>
 
                   {/* Actions */}
                   <div className="flex flex-wrap items-center gap-2">
@@ -644,7 +644,7 @@ function FlaggedPageContent() {
                       href={`https://video.eko.com/s/assetReview/?projectId=${currentExperience.instanceId}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#6B52FF] hover:bg-[#6B52FF] text-gray-900 font-medium transition-all shadow-lg shadow-[#6B52FF]/20 text-sm"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition-all shadow-lg shadow-violet-500/20 text-sm"
                     >
                       <ExternalLink className="w-4 h-4" />
                       Open in Asset Review
@@ -654,7 +654,7 @@ function FlaggedPageContent() {
                         href={currentExperience.backstageLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium transition-colors text-sm"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium transition-colors text-sm"
                       >
                         <ExternalLink className="w-4 h-4" />
                         Open in Backstage
@@ -664,7 +664,7 @@ function FlaggedPageContent() {
                       <>
                         <button
                           onClick={startEditing}
-                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium transition-colors text-sm"
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium transition-colors text-sm"
                         >
                           <Edit2 className="w-4 h-4" />
                           Edit
@@ -684,15 +684,15 @@ function FlaggedPageContent() {
             </div>
 
             {/* Navigation Controls */}
-            <div className="flex items-center justify-between gap-3 bg-gray-50/30 rounded-xl border border-gray-300/50 p-4">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/30 rounded-xl border border-slate-700/50 p-4">
               <button
                 onClick={goToPrevious}
                 disabled={currentIndex === 0}
                 className={`
                   flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all
                   ${currentIndex === 0
-                    ? 'bg-gray-50/50 text-gray-300 cursor-not-allowed'
-                    : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                    ? 'bg-slate-800/50 text-slate-600 cursor-not-allowed'
+                    : 'bg-slate-700 text-white hover:bg-slate-600'
                   }
                 `}
               >
@@ -701,9 +701,9 @@ function FlaggedPageContent() {
               </button>
 
               <div className="text-center">
-                <div className="text-gray-500 text-xs font-medium uppercase tracking-wider mb-0.5">Experience</div>
-                <div className="text-gray-900 font-bold text-lg">
-                  {currentIndex + 1} <span className="text-gray-400 font-normal">of</span> {totalCount}
+                <div className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-0.5">Experience</div>
+                <div className="text-white font-bold text-lg">
+                  {currentIndex + 1} <span className="text-slate-500 font-normal">of</span> {totalCount}
                 </div>
               </div>
 
@@ -713,8 +713,8 @@ function FlaggedPageContent() {
                 className={`
                   flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all
                   ${currentIndex === totalCount - 1
-                    ? 'bg-gray-50/50 text-gray-300 cursor-not-allowed'
-                    : 'bg-[#6B52FF] text-gray-900 hover:bg-[#6B52FF] shadow-lg shadow-[#6B52FF]/25'
+                    ? 'bg-slate-800/50 text-slate-600 cursor-not-allowed'
+                    : 'bg-violet-600 text-white hover:bg-violet-500 shadow-lg shadow-violet-500/25'
                   }
                 `}
               >
@@ -726,8 +726,8 @@ function FlaggedPageContent() {
 
               {/* Right Column - Video Preview */}
               <div className="lg:sticky lg:top-24 lg:self-start">
-                <div className="bg-gradient-to-br from-slate-800/80 to-slate-800/50 rounded-xl border border-gray-300/50 p-5 shadow-xl">
-                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Video Preview</h3>
+                <div className="bg-gradient-to-br from-slate-800/80 to-slate-800/50 rounded-xl border border-slate-700/50 p-5 shadow-xl">
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">Video Preview</h3>
                   <EkoEmbed instanceId={currentExperience.instanceId} />
                 </div>
               </div>
@@ -741,8 +741,8 @@ function FlaggedPageContent() {
 
 export default function FlaggedPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-white flex items-center justify-center">
-      <div className="text-gray-900">Loading...</div>
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="text-white">Loading...</div>
     </div>}>
       <FlaggedPageContent />
     </Suspense>
