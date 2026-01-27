@@ -10,7 +10,7 @@ import {
   ISSUE_METADATA,
   ALL_ISSUES
 } from './types';
-import { processTickets, getIssueMetadata } from './categorizer';
+import { processTickets, getIssueMetadata, getAllIssues } from './categorizer';
 
 export interface LastWeekData {
   totalTickets: number;
@@ -171,7 +171,7 @@ export function runAnalysis(
   
   // Get categories to include based on analysis type
   const categoriesToInclude = analysisType === 'overall' 
-    ? [...ALL_ISSUES] 
+    ? getAllIssues() // Use runtime issues which includes custom ones
     : [...config.issues, 'Uncategorized'];
   
   for (const category of categoriesToInclude) {
