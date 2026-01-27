@@ -74,7 +74,7 @@ export default function CategoriesManager({ onCategoriesChange }: CategoriesMana
       const response = await fetch('/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categories })
+        body: JSON.stringify({ issues: categories }) // Send as 'issues'
       });
       if (!response.ok) throw new Error('Failed to save categories');
       const data: any = await response.json();
@@ -99,7 +99,7 @@ export default function CategoriesManager({ onCategoriesChange }: CategoriesMana
       await fetch('/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categories: DEFAULT_CATEGORIES })
+        body: JSON.stringify({ issues: DEFAULT_CATEGORIES }) // Send as 'issues'
       });
       setSuccess('Categories reset to defaults!');
       setTimeout(() => setSuccess(null), 3000);
