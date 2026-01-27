@@ -401,7 +401,7 @@ function FlaggedPageContent() {
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Calendar View */}
         {showCalendar && (
-          <div className="mb-6 bg-gray-50/30 rounded-xl border border-gray-300/50 p-6">
+          <div className="mb-6 bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Select Date</h3>
               <div className="flex items-center gap-2">
@@ -445,10 +445,10 @@ function FlaggedPageContent() {
                     className={`
                       p-2 rounded-lg text-sm transition-all
                       ${isSelected 
-                        ? 'bg-[#6B52FF] text-gray-900 font-semibold' 
+                        ? 'bg-[#6B52FF] text-white font-semibold shadow-lg' 
                         : hasData
-                          ? 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                          : 'bg-gray-50/30 text-gray-300 cursor-not-allowed'
+                        ? 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                        : 'bg-white text-gray-300 cursor-not-allowed border border-gray-100'
                       }
                       ${isToday && !isSelected ? 'ring-1 ring-[#6B52FF]/50' : ''}
                     `}
@@ -469,7 +469,7 @@ function FlaggedPageContent() {
             <div className="animate-spin w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full" />
           </div>
         ) : totalCount === 0 ? (
-          <div className="bg-gray-50/30 border border-gray-300/50 rounded-xl p-12 text-center">
+          <div className="bg-white border border-gray-200 rounded-xl p-12 text-center shadow-sm">
             <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h2 className="text-lg font-medium text-gray-900 mb-2">No Flagged Experiences</h2>
             <p className="text-gray-500 text-sm max-w-md mx-auto">
@@ -478,7 +478,7 @@ function FlaggedPageContent() {
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               {FLAGGABLE_ISSUES.map(cat => (
-                <span key={cat} className="text-xs px-2 py-1 rounded bg-gray-100/50 text-gray-700">
+                <span key={cat} className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 border border-gray-200">
                   {cat}
                 </span>
               ))}
@@ -487,7 +487,7 @@ function FlaggedPageContent() {
         ) : (
           <div className="space-y-6">
             {/* Category Navigation */}
-            <div className="bg-gradient-to-br from-slate-800/60 to-slate-800/30 rounded-xl border border-gray-300/50 p-5">
+            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
               <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                 <Flag className="w-3.5 h-3.5" />
                 Jump to Issue
@@ -504,14 +504,14 @@ function FlaggedPageContent() {
                       className={`
                         text-left px-3 py-2.5 rounded-lg transition-all text-sm font-medium
                         ${isActive
-                          ? 'bg-amber-500/20 border border-amber-500/50 text-amber-300 shadow-lg shadow-amber-500/10'
-                          : 'bg-gray-50/70 border border-gray-300/50 text-gray-700 hover:bg-gray-100/70 hover:border-gray-400'
+                          ? 'bg-amber-500/20 border border-amber-500/50 text-amber-600 shadow-lg shadow-amber-500/10 font-medium'
+                          : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-gray-200 hover:border-gray-300'
                         }
                       `}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate">{group.category}</span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded ${isActive ? 'bg-amber-500/30 text-amber-200' : 'bg-gray-100/70 text-gray-500'}`}>
+                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${isActive ? 'bg-amber-500/30 text-amber-700' : 'bg-gray-200 text-gray-600'}`}>
                           {group.experiences.length}
                         </span>
                       </div>
@@ -526,7 +526,7 @@ function FlaggedPageContent() {
               {/* Left Column - Info & Details */}
               <div className="space-y-4">
             {/* Experience Info Card */}
-            <div className="bg-gradient-to-br from-slate-800/80 to-slate-800/50 rounded-xl border border-gray-300/50 p-6 shadow-xl">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
               {isEditing && editedExperience ? (
                 // Edit Mode
                 <div className="space-y-4">
@@ -684,14 +684,14 @@ function FlaggedPageContent() {
             </div>
 
             {/* Navigation Controls */}
-            <div className="flex items-center justify-between gap-3 bg-gray-50/30 rounded-xl border border-gray-300/50 p-4">
+            <div className="flex items-center justify-between gap-3 bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
               <button
                 onClick={goToPrevious}
                 disabled={currentIndex === 0}
                 className={`
                   flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all
                   ${currentIndex === 0
-                    ? 'bg-gray-50/50 text-gray-300 cursor-not-allowed'
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
                   }
                 `}
@@ -713,7 +713,7 @@ function FlaggedPageContent() {
                 className={`
                   flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all
                   ${currentIndex === totalCount - 1
-                    ? 'bg-gray-50/50 text-gray-300 cursor-not-allowed'
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-[#6B52FF] text-gray-900 hover:bg-[#6B52FF] shadow-lg shadow-[#6B52FF]/25'
                   }
                 `}
@@ -726,7 +726,7 @@ function FlaggedPageContent() {
 
               {/* Right Column - Video Preview */}
               <div className="lg:sticky lg:top-24 lg:self-start">
-                <div className="bg-gradient-to-br from-slate-800/80 to-slate-800/50 rounded-xl border border-gray-300/50 p-5 shadow-xl">
+                <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Video Preview</h3>
                   <EkoEmbed instanceId={currentExperience.instanceId} />
                 </div>
