@@ -23,6 +23,7 @@ import {
   IssueType,
   DevFactoryType
 } from '@/lib/categoryStorage';
+import { ISSUE_COMMENTS } from '@/lib/issueComments';
 
 interface CategoriesManagerProps {
   onCategoriesChange?: (categories: StoredCategory[]) => void;
@@ -369,7 +370,12 @@ function CategoryTable({
               <React.Fragment key={cat.name}>
                 <tr className="border-b border-slate-700/30 hover:bg-slate-800/30">
                   <td className="px-4 py-3">
-                    <span className="text-slate-200">{cat.name}</span>
+                    <span 
+                      className="text-slate-200 cursor-help" 
+                      title={cat.comment || ISSUE_COMMENTS[cat.name] || cat.name}
+                    >
+                      {cat.name}
+                    </span>
                     {cat.isCustom && (
                       <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-violet-500/20 text-violet-400">
                         Custom
