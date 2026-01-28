@@ -12,6 +12,7 @@
     "canvas": "^3.2.1",
     "chart.js": "^4.5.1",
     "date-fns": "^4.1.0",
+    "date-fns-tz": "^3.2.0",
     "exceljs": "^4.4.0",
     "html2canvas": "^1.4.1",
     "ioredis": "^5.9.2",

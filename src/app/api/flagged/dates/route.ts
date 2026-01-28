@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import Redis from 'ioredis';
-import { format, subDays } from 'date-fns';
+import { subDays } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 
 const FLAGGED_DATES_KEY = 'qc-ticket-analyzer:flagged:dates';
 const FLAGGED_DATA_PREFIX = 'qc-ticket-analyzer:flagged:';
 const RETENTION_DAYS = 30;
+
+// Always use New York timezone for date calculations
+const NY_TIMEZONE = 'America/New_York';
 
 // Initialize Redis client from environment variable
 function getRedisClient(): Redis | null {
@@ -25,7 +29,7 @@ function getRedisClient(): Redis | null {
 // Clean up data older than 30 days
 async function cleanupOldData(redis: Redis): Promise<void> {
   try {
-    const cutoffDate = format(subDays(new Date(), RETENTION_DAYS), 'yyyy-MM-dd');
+    const cutoffDate = formatInTimeZone(subDays(new Date(), RETENTION_DAYS), NY_TIMEZONE, 'yyyy-MM-dd');
     
     // Get all dates
     const dates = await redis.smembers(FLAGGED_DATES_KEY);

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Redis from 'ioredis';
-import { format, subDays, parseISO } from 'date-fns';
+import { subDays } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
+
+// Always use New York timezone for date calculations
+const NY_TIMEZONE = 'America/New_York';
 
 const FLAGGED_DATES_KEY = 'qc-ticket-analyzer:flagged:dates';
 const FLAGGED_DATA_PREFIX = 'qc-ticket-analyzer:flagged:';
@@ -25,7 +29,7 @@ function getRedisClient(): Redis | null {
 // Clean up data older than 30 days
 async function cleanupOldData(redis: Redis): Promise<void> {
   try {
-    const cutoffDate = format(subDays(new Date(), RETENTION_DAYS), 'yyyy-MM-dd');
+    const cutoffDate = formatInTimeZone(subDays(new Date(), RETENTION_DAYS), NY_TIMEZONE, 'yyyy-MM-dd');
     
     // Get all dates
     const dates = await redis.smembers(FLAGGED_DATES_KEY);
@@ -57,7 +61,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const searchParams = request.nextUrl.searchParams;
-    const date = searchParams.get('date') || format(new Date(), 'yyyy-MM-dd');
+    const date = searchParams.get('date') || formatInTimeZone(new Date(), NY_TIMEZONE, 'yyyy-MM-dd');
     
     // Clean up old data on every GET request
     await cleanupOldData(redis);
@@ -101,7 +105,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const date = body.date || format(new Date(), 'yyyy-MM-dd');
+    const date = body.date || formatInTimeZone(new Date(), NY_TIMEZONE, 'yyyy-MM-dd');
     const data = body.data;
     
     if (!data) {
