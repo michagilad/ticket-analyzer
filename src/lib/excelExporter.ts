@@ -291,22 +291,21 @@ async function createDashboardSheet(
   }
   
   // CATEGORY BREAKDOWN
+  // Determine if we should include Top Product Type column
+  const includeTopProductCol = config.includeTopProducts !== false;
+  
   let categoryColCount: number;
   if (hasComparison) {
     if (config.includeDevFactory && config.includeCategory) {
-      categoryColCount = 9;
-    } else if (analysisType === 'dimensions') {
-      categoryColCount = 6; // No Top Product Type column
+      categoryColCount = includeTopProductCol ? 9 : 8;
     } else {
-      categoryColCount = 7;
+      categoryColCount = includeTopProductCol ? 7 : 6;
     }
   } else {
     if (config.includeDevFactory && config.includeCategory) {
-      categoryColCount = 7;
-    } else if (analysisType === 'dimensions') {
-      categoryColCount = 4; // No Top Product Type column
+      categoryColCount = includeTopProductCol ? 7 : 6;
     } else {
-      categoryColCount = 5;
+      categoryColCount = includeTopProductCol ? 5 : 4;
     }
   }
   
@@ -317,16 +316,28 @@ async function createDashboardSheet(
   catSectionCell.font = STYLES.sectionHeader.font;
   currentRow++;
   
-  // Category headers (skip Top Product Type for dimensions analysis)
+  // Category headers
   let catHeaders: string[];
   if (hasComparison) {
-    catHeaders = config.includeDevFactory && config.includeCategory
-      ? ['Issue', 'Past', 'Current', 'Change', '% Change', 'Trend', 'Dev/Factory', 'Category', 'Top Product Type']
-      : ['Issue', 'Past', 'Current', 'Change', '% Change', 'Trend', 'Top Product Type'];
+    if (config.includeDevFactory && config.includeCategory) {
+      catHeaders = includeTopProductCol
+        ? ['Issue', 'Past', 'Current', 'Change', '% Change', 'Trend', 'Dev/Factory', 'Category', 'Top Product Type']
+        : ['Issue', 'Past', 'Current', 'Change', '% Change', 'Trend', 'Dev/Factory', 'Category'];
+    } else {
+      catHeaders = includeTopProductCol
+        ? ['Issue', 'Past', 'Current', 'Change', '% Change', 'Trend', 'Top Product Type']
+        : ['Issue', 'Past', 'Current', 'Change', '% Change', 'Trend'];
+    }
   } else {
-    catHeaders = config.includeDevFactory && config.includeCategory
-      ? ['Issue', 'Count', 'Percentage', 'Visual', 'Dev/Factory', 'Category', 'Top Product Type']
-      : ['Issue', 'Count', 'Percentage', 'Visual', 'Top Product Type'];
+    if (config.includeDevFactory && config.includeCategory) {
+      catHeaders = includeTopProductCol
+        ? ['Issue', 'Count', 'Percentage', 'Visual', 'Dev/Factory', 'Category', 'Top Product Type']
+        : ['Issue', 'Count', 'Percentage', 'Visual', 'Dev/Factory', 'Category'];
+    } else {
+      catHeaders = includeTopProductCol
+        ? ['Issue', 'Count', 'Percentage', 'Visual', 'Top Product Type']
+        : ['Issue', 'Count', 'Percentage', 'Visual'];
+    }
   }
   
   catHeaders.forEach((header, idx) => {
@@ -374,8 +385,10 @@ async function createDashboardSheet(
       if (config.includeDevFactory && config.includeCategory) {
         ws.getCell(currentRow, 7).value = cat.metadata.devFactory || '';
         ws.getCell(currentRow, 8).value = cat.metadata.category || '';
-        ws.getCell(currentRow, 9).value = topProduct;
-      } else if (analysisType !== 'dimensions') {
+        if (includeTopProductCol) {
+          ws.getCell(currentRow, 9).value = topProduct;
+        }
+      } else if (includeTopProductCol) {
         ws.getCell(currentRow, 7).value = topProduct;
       }
     } else {
@@ -394,8 +407,10 @@ async function createDashboardSheet(
       if (config.includeDevFactory && config.includeCategory) {
         ws.getCell(currentRow, 5).value = cat.metadata.devFactory || '';
         ws.getCell(currentRow, 6).value = cat.metadata.category || '';
-        ws.getCell(currentRow, 7).value = topProduct;
-      } else if (analysisType !== 'dimensions') {
+        if (includeTopProductCol) {
+          ws.getCell(currentRow, 7).value = topProduct;
+        }
+      } else if (includeTopProductCol) {
         ws.getCell(currentRow, 5).value = topProduct;
       }
     }

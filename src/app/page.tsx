@@ -289,13 +289,17 @@ export default function Home() {
   };
 
   const handleDownloadPDF = async (resultWithType: AnalysisResultWithType) => {
+    const config = ANALYSIS_CONFIGS[resultWithType.type];
     const blob = await generatePDFDashboard(resultWithType.result, {
-      title: `${ANALYSIS_CONFIGS[resultWithType.type].name} Dashboard`,
+      title: `${config.name} Dashboard`,
       showComparison: resultWithType.showComparison,
       includeStuckTickets: resultWithType.includeStuckTickets,
       allTickets: resultWithType.categorizedTickets,
+      includeDevFactory: config.includeDevFactory,
+      includeCategory: config.includeCategory,
+      includeTopProducts: config.includeTopProducts,
     });
-    const filename = `${ANALYSIS_CONFIGS[resultWithType.type].name.replace(/\s+/g, '_')}_Dashboard_${new Date().toISOString().split('T')[0]}.pdf`;
+    const filename = `${config.name.replace(/\s+/g, '_')}_Dashboard_${new Date().toISOString().split('T')[0]}.pdf`;
     downloadPDFDashboard(blob, filename);
   };
 

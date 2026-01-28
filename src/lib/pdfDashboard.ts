@@ -31,6 +31,10 @@ interface DashboardOptions {
   dateRange?: string;
   includeStuckTickets?: boolean;
   allTickets?: CategorizedTicket[];
+  // Config flags to control what sections are included
+  includeDevFactory?: boolean;
+  includeCategory?: boolean;
+  includeTopProducts?: boolean;
 }
 
 // Helper to convert hex to RGB
@@ -262,6 +266,9 @@ export async function generatePDFDashboard(
     }),
     includeStuckTickets = false,
     allTickets = [],
+    includeDevFactory = true,
+    includeCategory = true,
+    includeTopProducts = true,
   } = options;
 
   const pdf = new jsPDF({
@@ -369,74 +376,87 @@ export async function generatePDFDashboard(
 
   // ===== CHARTS ROW =====
   const chartRowY = yPos;
-  const chartSectionWidth = (pageWidth - 2 * margin - 20) / 3;
+  
+  // Calculate number of charts to show
+  const chartsToShow = [includeDevFactory, includeCategory, true].filter(Boolean).length; // Top 10 Issues always shows
+  const chartSectionWidth = (pageWidth - 2 * margin - (chartsToShow > 1 ? 20 : 0)) / chartsToShow;
+  let chartIndex = 0;
 
   // ----- DEV vs FACTORY Donut Chart -----
-  pdf.setFontSize(10);
-  pdf.setTextColor(COLORS.primary);
-  pdf.setFont('helvetica', 'bold');
-  pdf.text('DEV vs FACTORY', margin, chartRowY);
+  if (includeDevFactory) {
+    const chartX = margin + chartIndex * (chartSectionWidth + 10);
+    pdf.setFontSize(10);
+    pdf.setTextColor(COLORS.primary);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('DEV vs FACTORY', chartX, chartRowY);
 
-  const devFactoryData = [
-    { label: 'DEV', value: result.devCount, color: COLORS.secondary },
-    { label: 'FACTORY', value: result.factoryCount, color: COLORS.success },
-  ].filter(d => d.value > 0);
+    const devFactoryData = [
+      { label: 'DEV', value: result.devCount, color: COLORS.secondary },
+      { label: 'FACTORY', value: result.factoryCount, color: COLORS.success },
+    ].filter(d => d.value > 0);
 
-  const donutCenterX = margin + chartSectionWidth / 2;
-  const donutCenterY = chartRowY + 35;
-  
-  drawDonutChart(
-    pdf,
-    donutCenterX,
-    donutCenterY,
-    22,
-    12,
-    devFactoryData,
-    result.totalTickets.toString(),
-    'Total'
-  );
+    const donutCenterX = chartX + chartSectionWidth / 2;
+    const donutCenterY = chartRowY + 35;
+    
+    drawDonutChart(
+      pdf,
+      donutCenterX,
+      donutCenterY,
+      22,
+      12,
+      devFactoryData,
+      result.totalTickets.toString(),
+      'Total'
+    );
 
-  // Legend for Dev/Factory
-  let legendY = chartRowY + 60;
-  devFactoryData.forEach((item) => {
-    const percentage = ((item.value / result.totalTickets) * 100).toFixed(1);
-    const rgb = hexToRgb(item.color);
-    pdf.setFillColor(rgb.r, rgb.g, rgb.b);
-    pdf.rect(margin, legendY, 4, 4, 'F');
-    pdf.setFontSize(8);
-    pdf.setTextColor(COLORS.text);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(`${item.label}: ${item.value} (${percentage}%)`, margin + 6, legendY + 3);
-    legendY += 7;
-  });
+    // Legend for Dev/Factory
+    let legendY = chartRowY + 60;
+    devFactoryData.forEach((item) => {
+      const percentage = ((item.value / result.totalTickets) * 100).toFixed(1);
+      const rgb = hexToRgb(item.color);
+      pdf.setFillColor(rgb.r, rgb.g, rgb.b);
+      pdf.rect(chartX, legendY, 4, 4, 'F');
+      pdf.setFontSize(8);
+      pdf.setTextColor(COLORS.text);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`${item.label}: ${item.value} (${percentage}%)`, chartX + 6, legendY + 3);
+      legendY += 7;
+    });
+    
+    chartIndex++;
+  }
 
   // ----- ISSUE TYPE Pie Chart -----
-  const issueTypeX = margin + chartSectionWidth + 10;
+  if (includeCategory) {
+    const issueTypeX = margin + chartIndex * (chartSectionWidth + 10);
+    pdf.setFontSize(10);
+    pdf.setTextColor(COLORS.primary);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('ISSUE TYPE BREAKDOWN', issueTypeX, chartRowY);
+
+    const categoryData = Object.entries(result.categoryBreakdown)
+      .filter(([, count]) => count > 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([type, count], i) => ({
+        label: type,
+        value: count,
+        color: PIE_COLORS[i % PIE_COLORS.length]
+      }));
+
+    const pieX = issueTypeX + chartSectionWidth / 2;
+    const pieY = chartRowY + 35;
+    
+    drawPieChart(pdf, pieX, pieY, 22, categoryData, true, issueTypeX, chartRowY + 60);
+    
+    chartIndex++;
+  }
+
+  // ----- TOP 10 ISSUES Bar Chart (always shown) -----
+  const topCatX = margin + chartIndex * (chartSectionWidth + 10);
   pdf.setFontSize(10);
   pdf.setTextColor(COLORS.primary);
   pdf.setFont('helvetica', 'bold');
-  pdf.text('ISSUE TYPE BREAKDOWN', issueTypeX, chartRowY);
-
-  const categoryData = Object.entries(result.categoryBreakdown)
-    .filter(([, count]) => count > 0)
-    .sort((a, b) => b[1] - a[1])
-    .map(([type, count], i) => ({
-      label: type,
-      value: count,
-      color: PIE_COLORS[i % PIE_COLORS.length]
-    }));
-
-  const pieX = issueTypeX + chartSectionWidth / 2;
-  const pieY = chartRowY + 35;
-  
-  drawPieChart(pdf, pieX, pieY, 22, categoryData, true, issueTypeX, chartRowY + 60);
-
-  // ----- TOP 10 CATEGORIES Bar Chart -----
-  const topCatX = margin + 2 * chartSectionWidth + 20;
-  pdf.setFontSize(10);
-  pdf.setTextColor(COLORS.primary);
-  pdf.setFont('helvetica', 'bold');
-  pdf.text('TOP 10 CATEGORIES', topCatX, chartRowY);
+  pdf.text('TOP 10 ISSUES', topCatX, chartRowY);
 
   const topIssues = [...result.issueResults]
     .sort((a, b) => b.count - a.count)
@@ -470,8 +490,28 @@ export async function generatePDFDashboard(
   pdf.text('ALL CATEGORIES', margin, yPos);
   yPos += 6;
 
-  // Table header
-  const colWidths = showComparison ? [75, 22, 22, 30, 35, 22, 25] : [85, 25, 25, 35, 40];
+  // Table header - build columns dynamically based on config
+  let colWidths: number[];
+  let headers: string[];
+  
+  if (showComparison) {
+    if (includeDevFactory && includeCategory) {
+      colWidths = [75, 22, 22, 30, 35, 22, 25];
+      headers = ['Category', 'Count', '%', 'Dev/Factory', 'Issue Type', 'Past', 'Change'];
+    } else {
+      colWidths = [95, 25, 25, 35, 35];
+      headers = ['Category', 'Count', '%', 'Past', 'Change'];
+    }
+  } else {
+    if (includeDevFactory && includeCategory) {
+      colWidths = [85, 25, 25, 35, 40];
+      headers = ['Category', 'Count', '%', 'Dev/Factory', 'Issue Type'];
+    } else {
+      colWidths = [120, 35, 35];
+      headers = ['Category', 'Count', '%'];
+    }
+  }
+  
   const tableWidth = colWidths.reduce((a, b) => a + b, 0);
   
   pdf.setFillColor(hexToRgb(COLORS.secondary).r, hexToRgb(COLORS.secondary).g, hexToRgb(COLORS.secondary).b);
@@ -481,10 +521,6 @@ export async function generatePDFDashboard(
   pdf.setFontSize(8);
   pdf.setTextColor(255, 255, 255);
   pdf.setFont('helvetica', 'bold');
-  
-  const headers = showComparison 
-    ? ['Category', 'Count', '%', 'Dev/Factory', 'Issue Type', 'Past', 'Change']
-    : ['Category', 'Count', '%', 'Dev/Factory', 'Issue Type'];
   
   headers.forEach((header, i) => {
     pdf.text(header, colX, yPos + 5);
@@ -544,7 +580,7 @@ export async function generatePDFDashboard(
     pdf.setFont('helvetica', 'normal');
     
     // Category name (truncate if needed)
-    const maxCatLen = showComparison ? 35 : 42;
+    const maxCatLen = showComparison ? 35 : (includeDevFactory && includeCategory ? 42 : 60);
     const displayName = cat.issue.length > maxCatLen ? cat.issue.substring(0, maxCatLen - 3) + '...' : cat.issue;
     pdf.text(displayName, colX, yPos + 4);
     colX += colWidths[0];
@@ -557,28 +593,35 @@ export async function generatePDFDashboard(
     pdf.text(`${cat.percentage.toFixed(1)}%`, colX, yPos + 4);
     colX += colWidths[2];
     
-    // Dev/Factory
-    if (cat.metadata.devFactory) {
-      const dfColor = cat.metadata.devFactory === 'DEV' ? COLORS.secondary : COLORS.success;
-      pdf.setTextColor(dfColor);
-    } else {
-      pdf.setTextColor(COLORS.lightText);
+    // Dev/Factory and Issue Type (only if included)
+    if (includeDevFactory && includeCategory) {
+      // Dev/Factory
+      if (cat.metadata.devFactory) {
+        const dfColor = cat.metadata.devFactory === 'DEV' ? COLORS.secondary : COLORS.success;
+        pdf.setTextColor(dfColor);
+      } else {
+        pdf.setTextColor(COLORS.lightText);
+      }
+      pdf.text(cat.metadata.devFactory || '-', colX, yPos + 4);
+      colX += colWidths[3];
+      
+      // Issue Type
+      pdf.setTextColor(COLORS.text);
+      pdf.text(cat.metadata.category || '-', colX, yPos + 4);
+      colX += colWidths[4];
     }
-    pdf.text(cat.metadata.devFactory || '-', colX, yPos + 4);
-    colX += colWidths[3];
-    
-    // Issue Type
-    pdf.setTextColor(COLORS.text);
-    pdf.text(cat.metadata.category || '-', colX, yPos + 4);
     
     // Comparison columns
     if (showComparison && result.comparison) {
-      colX += colWidths[4];
       const comparison = result.comparison.issueComparisons.find(c => c.issue === cat.issue);
       
-      // Past value
+      // Past value - column index depends on whether Dev/Factory columns are included
+      const pastColIdx = includeDevFactory && includeCategory ? 5 : 3;
+      const changeColIdx = includeDevFactory && includeCategory ? 6 : 4;
+      
+      pdf.setTextColor(COLORS.text);
       pdf.text(comparison?.lastWeek.toString() || '0', colX, yPos + 4);
-      colX += colWidths[5];
+      colX += colWidths[pastColIdx];
       
       // Change
       if (comparison && comparison.change !== 0) {
