@@ -350,8 +350,12 @@ async function createDashboardSheet(
   });
   currentRow++;
   
-  // Category data
-  for (const cat of result.issueResults) {
+  // Category data - filter out Uncategorized for dimensions analysis
+  const filteredIssueResults = config.includeTopProducts === false
+    ? result.issueResults.filter(cat => cat.issue !== 'Uncategorized')
+    : result.issueResults;
+  
+  for (const cat of filteredIssueResults) {
     const topProduct = getTopProductTypeForCategory(cat.tickets);
     
     if (hasComparison) {
@@ -572,9 +576,10 @@ async function createDashboardSheet(
     currentRow++;
   }
   
-  // TOP 10 PRODUCT TYPES BY ISSUE
-  // Always show this section - it will show product types from tickets that have ProductType
-  const topProductTypes = getTopProductTypesWithCategoryBreakdown(allTickets, 10);
+  // TOP 10 PRODUCT TYPES BY ISSUE (skip for analyses that don't include top products)
+  const topProductTypes = config.includeTopProducts !== false 
+    ? getTopProductTypesWithCategoryBreakdown(allTickets, 10)
+    : [];
   if (topProductTypes.length > 0) {
     currentRow++; // Add spacing
     
