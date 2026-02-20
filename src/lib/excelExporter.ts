@@ -90,18 +90,17 @@ async function createDashboardSheet(
     { width: 14 }, // C - Current
     { width: 12 }, // D - Change
     { width: 12 }, // E - % Change
-    { width: 10 }, // F - Trend
-    { width: 12 }, // G - Dev/Factory
-    { width: 12 }, // H - Issue Type
-    { width: 30 }, // I - Top Product Type
-    { width: 60 }, // J - Category Breakdown
+    { width: 12 }, // F - Dev/Factory
+    { width: 12 }, // G - Issue Type
+    { width: 30 }, // H - Top Product Type
+    { width: 60 }, // I - Category Breakdown
   ];
   
   // KEY METRICS SECTION
   if (hasComparison) {
     // Section header
     const sectionRow = ws.getRow(currentRow);
-    ws.mergeCells(currentRow, 1, currentRow, 6);
+    ws.mergeCells(currentRow, 1, currentRow, 5);
     const sectionCell = ws.getCell(currentRow, 1);
     sectionCell.value = 'KEY METRICS - COMPARISON';
     sectionCell.fill = STYLES.sectionHeader.fill;
@@ -109,7 +108,7 @@ async function createDashboardSheet(
     currentRow++;
     
     // Column headers
-    const headers = ['Metric', 'Past', 'Current', 'Change', '% Change', 'Trend'];
+    const headers = ['Metric', 'Past', 'Current', 'Change', '% Change'];
     const headerRow = ws.getRow(currentRow);
     headers.forEach((header, idx) => {
       const cell = ws.getCell(currentRow, idx + 1);
@@ -137,38 +136,30 @@ async function createDashboardSheet(
         currentTotal: result.totalProductsReviewed,
         invertColors: true, // More approved is good
         showPercentOfTotal: true,
+        hideChange: true, // Don't show change for this metric
       },
       {
-        metric: 'Products with Tickets',
+        metric: 'Rejected Experiences (with tickets)',
         past: comparison.lastWeekProductsReviewed - comparison.lastWeekApprovedExperiences,
         pastTotal: comparison.lastWeekProductsReviewed,
         current: result.productsWithTickets,
         currentTotal: result.totalProductsReviewed,
         showPercentOfTotal: true,
+        hideChange: true, // Don't show change for this metric
       },
       {
         metric: 'Total Tickets',
         past: comparison.lastWeekTotalTickets,
         current: result.totalTickets,
         showPercentOfTotal: false,
+        hideChange: true, // Don't show change for this metric
+        hidePercentChange: true, // Don't show % change for this metric
       },
       {
         metric: 'Tickets per Experience',
         past: parseFloat((comparison.lastWeekTotalTickets / Math.max(comparison.lastWeekProductsReviewed - comparison.lastWeekApprovedExperiences, 1)).toFixed(2)),
         current: result.ticketsPerExperience,
         isDecimal: true,
-        showPercentOfTotal: false,
-      },
-      {
-        metric: 'Unique Issues',
-        past: comparison.issueComparisons.filter(c => c.lastWeek > 0).length,
-        current: result.issueResults.filter(c => c.count > 0 && c.issue !== 'Uncategorized').length,
-        showPercentOfTotal: false,
-      },
-      {
-        metric: 'Uncategorized',
-        past: comparison.issueComparisons.find(c => c.issue === 'Uncategorized')?.lastWeek || 0,
-        current: result.uncategorizedCount,
         showPercentOfTotal: false,
       },
     ];
@@ -212,15 +203,19 @@ async function createDashboardSheet(
         ws.getCell(currentRow, 3).value = data.current;
       }
       
-      const changeCell = ws.getCell(currentRow, 4);
-      changeCell.value = change;
-      applyChangeColor(changeCell, change, data.invertColors);
+      // Only show Change if not hidden
+      if (!data.hideChange) {
+        const changeCell = ws.getCell(currentRow, 4);
+        changeCell.value = change;
+        applyChangeColor(changeCell, change, data.invertColors);
+      }
       
-      const percentCell = ws.getCell(currentRow, 5);
-      percentCell.value = `${changePercent}%`;
-      applyChangeColor(percentCell, change, data.invertColors);
-      
-      ws.getCell(currentRow, 6).value = trend;
+      // Only show % Change if not hidden
+      if (!data.hidePercentChange) {
+        const percentCell = ws.getCell(currentRow, 5);
+        percentCell.value = `${changePercent}%`;
+        applyChangeColor(percentCell, change, data.invertColors);
+      }
       
       currentRow++;
     }
@@ -238,12 +233,10 @@ async function createDashboardSheet(
     const simpleMetrics = [
       ['Total Products Reviewed', result.totalProductsReviewed],
       ['Approved Experiences (No Issues)', `${result.approvedExperiences} (${result.totalProductsReviewed > 0 ? ((result.approvedExperiences / result.totalProductsReviewed) * 100).toFixed(1) : 0}%)`],
-      ['Products with Tickets', `${result.productsWithTickets} (${result.totalProductsReviewed > 0 ? ((result.productsWithTickets / result.totalProductsReviewed) * 100).toFixed(1) : 0}%)`],
+      ['Rejected Experiences (with tickets)', `${result.productsWithTickets} (${result.totalProductsReviewed > 0 ? ((result.productsWithTickets / result.totalProductsReviewed) * 100).toFixed(1) : 0}%)`],
       ['Tickets per Experience', result.ticketsPerExperience],
       ['Total Tickets', result.totalTickets],
       ['Categorized Tickets', result.categorizedCount],
-      ['Unique Issues', result.issueResults.filter(c => c.count > 0 && c.issue !== 'Uncategorized').length],
-      ['Uncategorized', `${result.uncategorizedCount} (${result.totalTickets > 0 ? ((result.uncategorizedCount / result.totalTickets) * 100).toFixed(1) : 0}%)`],
     ];
     
     for (const [metric, value] of simpleMetrics) {
@@ -297,9 +290,9 @@ async function createDashboardSheet(
   let categoryColCount: number;
   if (hasComparison) {
     if (config.includeDevFactory && config.includeCategory) {
-      categoryColCount = includeTopProductCol ? 9 : 8;
+      categoryColCount = includeTopProductCol ? 8 : 7; // Removed Trend column
     } else {
-      categoryColCount = includeTopProductCol ? 7 : 6;
+      categoryColCount = includeTopProductCol ? 6 : 5; // Removed Trend column
     }
   } else {
     if (config.includeDevFactory && config.includeCategory) {
@@ -316,17 +309,17 @@ async function createDashboardSheet(
   catSectionCell.font = STYLES.sectionHeader.font;
   currentRow++;
   
-  // Category headers
+  // Category headers (removed Trend column for comparison mode)
   let catHeaders: string[];
   if (hasComparison) {
     if (config.includeDevFactory && config.includeCategory) {
       catHeaders = includeTopProductCol
-        ? ['Issue', 'Past', 'Current', 'Change', '% Change', 'Trend', 'Dev/Factory', 'Category', 'Top Product Type']
-        : ['Issue', 'Past', 'Current', 'Change', '% Change', 'Trend', 'Dev/Factory', 'Category'];
+        ? ['Issue', 'Past', 'Current', 'Change', '% Change', 'Dev/Factory', 'Category', 'Top Product Type']
+        : ['Issue', 'Past', 'Current', 'Change', '% Change', 'Dev/Factory', 'Category'];
     } else {
       catHeaders = includeTopProductCol
-        ? ['Issue', 'Past', 'Current', 'Change', '% Change', 'Trend', 'Top Product Type']
-        : ['Issue', 'Past', 'Current', 'Change', '% Change', 'Trend'];
+        ? ['Issue', 'Past', 'Current', 'Change', '% Change', 'Top Product Type']
+        : ['Issue', 'Past', 'Current', 'Change', '% Change'];
     }
   } else {
     if (config.includeDevFactory && config.includeCategory) {
@@ -363,7 +356,6 @@ async function createDashboardSheet(
       const lastWeek = catComp?.lastWeek || 0;
       const change = catComp?.change || 0;
       const changePercent = catComp?.changePercent || 0;
-      const trend = change < 0 ? '↓' : change > 0 ? '↑' : '→';
       
       const issueCell = ws.getCell(currentRow, 1);
       issueCell.value = cat.issue;
@@ -384,16 +376,15 @@ async function createDashboardSheet(
       percentCell.value = `${changePercent > 0 ? '+' : ''}${changePercent}%`;
       applyChangeColor(percentCell, change);
       
-      ws.getCell(currentRow, 6).value = trend;
-      
+      // Column 6+ for Dev/Factory, Category, Top Product (Trend column removed)
       if (config.includeDevFactory && config.includeCategory) {
-        ws.getCell(currentRow, 7).value = cat.metadata.devFactory || '';
-        ws.getCell(currentRow, 8).value = cat.metadata.category || '';
+        ws.getCell(currentRow, 6).value = cat.metadata.devFactory || '';
+        ws.getCell(currentRow, 7).value = cat.metadata.category || '';
         if (includeTopProductCol) {
-          ws.getCell(currentRow, 9).value = topProduct;
+          ws.getCell(currentRow, 8).value = topProduct;
         }
       } else if (includeTopProductCol) {
-        ws.getCell(currentRow, 7).value = topProduct;
+        ws.getCell(currentRow, 6).value = topProduct;
       }
     } else {
       const issueCell = ws.getCell(currentRow, 1);
