@@ -251,7 +251,7 @@ export const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisConfig> = {
   factory: {
     type: 'factory',
     name: 'Factory Specific Analysis',
-    description: 'Factory/production issues (17 issues)',
+    description: 'Factory/production issues (18 issues)',
     issues: [
       'Action video edit',
       'Action video framing',
@@ -263,6 +263,7 @@ export const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisConfig> = {
       'Blurry/out of focus video',
       'Damage/dirty plate',
       'Damaged product',
+      'Date code/LOT number shown',
       'Dimensions using a set shot',
       'Feature crop',
       'Incorrect dimension values',
