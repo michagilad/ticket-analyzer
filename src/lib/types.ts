@@ -44,27 +44,6 @@ export interface CategorizedTicket {
   PublicPreviewLink?: string;
 }
 
-// Flaggable issues for QC review
-export const FLAGGABLE_ISSUES = [
-  'Blurry/out of focus video',
-  'Damage/dirty plate',
-  'Damaged product',
-  'Date code/LOT number shown',
-  'Off centered / Off axis',
-  'Reflections on product',
-] as const;
-
-// Flagged experience for QC review
-export interface FlaggedExperience {
-  instanceId: string;
-  issue: string;
-  experienceName: string;
-  ticketName: string;
-  ticketStatus: string;
-  ticketDescription?: string;
-  backstageLink?: string;
-}
-
 export interface IssueMetadata {
   devFactory: 'DEV' | 'FACTORY' | '';
   category: 'COPY' | 'COLOR' | 'CAPTURE' | 'ARTIFACT' | 'TAGGING' | 'BBOX' | 'DIMS' | 'BLUEPRINT' | '';
@@ -302,7 +281,6 @@ export const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisConfig> = {
 // Compatibility exports for gradual migration
 export const ALL_CATEGORIES = ALL_ISSUES;
 export const CATEGORY_METADATA = ISSUE_METADATA;
-export const FLAGGABLE_CATEGORIES = FLAGGABLE_ISSUES;
 export type CategoryMetadata = IssueMetadata;
 export type CategoryResult = IssueResult;
 export type CategoryComparison = IssueComparison;

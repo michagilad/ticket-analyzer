@@ -12,10 +12,8 @@ import {
   Settings2,
   GitCompare,
   FileText,
-  Flag,
   AlertCircle
 } from 'lucide-react';
-import Link from 'next/link';
 import FileUpload, { FileType } from '@/components/FileUpload';
 import AnalysisTypeSelector from '@/components/AnalysisTypeSelector';
 import ResultsPreview from '@/components/ResultsPreview';
@@ -33,8 +31,6 @@ import { processTickets, updateRuntimeCategories } from '@/lib/categorizer';
 import { exportToExcel, generateFilename } from '@/lib/excelExporter';
 import { generatePDFDashboard, downloadPDFDashboard } from '@/lib/pdfDashboard';
 import { CategoryConfig } from '@/lib/categoryStorage';
-import { findExperiencesToFlag, getTotalFlaggedCount } from '@/lib/flagger';
-import { FlaggedExperience } from '@/lib/types';
 
 type TabType = 'analyzer' | 'categories';
 
@@ -44,11 +40,6 @@ interface AnalysisResultWithType {
   categorizedTickets: CategorizedTicket[];
   showComparison: boolean;
   includeStuckTickets: boolean;
-}
-
-interface FlaggedData {
-  byCategory: { category: string; experiences: FlaggedExperience[] }[];
-  totalCount: number;
 }
 
 export default function Home() {
@@ -66,7 +57,6 @@ export default function Home() {
   const [results, setResults] = useState<AnalysisResultWithType[]>([]);
   const [activeResultIndex, setActiveResultIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [flaggedData, setFlaggedData] = useState<FlaggedData | null>(null);
   const [storedIssues, setStoredIssues] = useState<any[] | null>(null);
 
   // Fetch stored issues on mount for Excel export comments
@@ -332,14 +322,6 @@ export default function Home() {
           <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-slate-100 via-slate-200 to-slate-300 bg-clip-text text-transparent">
             Ticket Analyzer
           </h1>
-          <Link
-            href="/flagged"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 hover:border-amber-500/40 transition-all text-sm font-medium group"
-          >
-            <Flag className="w-4 h-4" />
-            View Flagged Experiences
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </Link>
         </header>
 
         {/* Tab Navigation */}
@@ -472,103 +454,6 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Link
-                      href="/flagged"
-                      onClick={async () => {
-                        // Compute flagged experiences when clicking the button
-                        const tickets = results[activeResultIndex].categorizedTickets;
-                        console.log('Total tickets:', tickets.length);
-                        
-                        // Debug: Check a sample ticket for description
-                        if (tickets.length > 0) {
-                          console.log('Sample ticket keys:', Object.keys(tickets[0]));
-                          console.log('Sample ticket description:', tickets[0]['Ticket description']);
-                        }
-                        
-                        // Debug: Check for flaggable issues in tickets
-                        const flaggableTickets = tickets.filter(t => {
-                          const issues = t.issues || [t.issue];
-                          return issues.some(issue => ['Bad label - set up', 'Blurry/out of focus video', 'Damage/dirty plate', 'Damaged product', 'Date code/LOT number shown', 'Off centered / Off axis', 'Reflections on product'].includes(issue));
-                        });
-                        console.log('Tickets with flaggable issues:', flaggableTickets.length);
-                        
-                        // Debug: Check statuses
-                        const notDoneResolved = flaggableTickets.filter(t => {
-                          const status = t['Ticket status']?.toLowerCase() || '';
-                          return status !== 'done' && status !== 'resolved';
-                        });
-                        console.log('Flaggable tickets not Done/Resolved:', notDoneResolved.length);
-                        
-                        // Debug: Check instance IDs
-                        const withInstanceId = notDoneResolved.filter(t => t['Instance ID'] && t['Instance ID'].trim() !== '');
-                        console.log('With Instance ID:', withInstanceId.length);
-                        console.log('Sample tickets:', withInstanceId.slice(0, 3).map(t => ({
-                          issue: t.issue,
-                          status: t['Ticket status'],
-                          instanceId: t['Instance ID'],
-                          description: t['Ticket description']
-                        })));
-                        
-                        const flaggedMap = findExperiencesToFlag(tickets);
-                        const byIssue: { category: string; experiences: FlaggedExperience[] }[] = [];
-                        flaggedMap.forEach((experiences, issue) => {
-                          if (experiences.length > 0) {
-                            byIssue.push({ category: issue, experiences });
-                          }
-                        });
-                        console.log('Flagged experiences:', byIssue);
-                        console.log('Total flagged:', byIssue.reduce((sum, g) => sum + g.experiences.length, 0));
-                        
-                        // Save to Redis (with sessionStorage fallback)
-                        try {
-                          const response = await fetch('/api/flagged', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ data: byIssue })
-                          });
-                          
-                          if (response.ok) {
-                            console.log('✓ Saved to Redis successfully');
-                            
-                            // Send Slack notification
-                            try {
-                              const slackResponse = await fetch('/api/slack/notify', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ 
-                                  data: byIssue,
-                                  date: new Date().toISOString().split('T')[0]
-                                })
-                              });
-                              
-                              if (slackResponse.ok) {
-                                const slackResult = await slackResponse.json();
-                                console.log('✓ Slack notification sent:', slackResult.totalCount, 'experiences');
-                              } else {
-                                console.log('ℹ Slack notification skipped (webhook not configured)');
-                              }
-                            } catch (slackError) {
-                              console.warn('Could not send Slack notification:', slackError);
-                            }
-                          } else {
-                            const errorData = await response.json();
-                            console.warn('Redis not available, using sessionStorage fallback:', errorData.error);
-                            // Fallback to sessionStorage
-                            sessionStorage.setItem('flaggedExperiences', JSON.stringify(byIssue));
-                            console.log('✓ Saved to sessionStorage');
-                          }
-                        } catch (error) {
-                          console.warn('Redis not available, using sessionStorage fallback');
-                          // Fallback to sessionStorage
-                          sessionStorage.setItem('flaggedExperiences', JSON.stringify(byIssue));
-                          console.log('✓ Saved to sessionStorage');
-                        }
-                      }}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 font-medium hover:bg-amber-500/20 transition-colors"
-                    >
-                      <Flag className="w-4 h-4" />
-                      Flag Experiences to QC (BETA)
-                    </Link>
                     <button
                       onClick={() => handleDownloadPDF(results[activeResultIndex] || results[0])}
                       className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-500/10 border border-violet-500/30 text-violet-400 font-medium hover:bg-violet-500/20 transition-colors"
